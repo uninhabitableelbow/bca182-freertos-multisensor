@@ -4,7 +4,7 @@ int main(void) {
     // Initialize the low-level Hardware Abstraction Layer
     HAL_Init();
     
-    // Minimal baseline loop keeping the processor core alive
+    // Infinite loop keeping the processor core alive
     while (1) {
         // Fallback safety spin lock
     }
