@@ -3,43 +3,8 @@
   "author": "BCA182 Student",
   "editor": "wokwi",
   "parts": [
-    { "type": "board-stm32-bluepill", "id": "bluepill", "top": 0, "left": 0, "attrs": {} },
-    { "type": "wokwi-dht22", "id": "dht1", "top": -150, "left": 250, "attrs": {} },
-    { "type": "wokwi-photoresistor-sensor", "id": "ldr1", "top": -50, "left": 250, "attrs": {} },
-    { "type": "wokwi-pir-motion-sensor", "id": "pir1", "top": 50, "left": 250, "attrs": {} },
-    { "type": "wokwi-ky-040", "id": "encoder1", "top": 150, "left": 250, "attrs": {} },
-    { "type": "wokwi-buzzer", "id": "buzzer1", "top": 280, "left": 250, "attrs": {} },
-    { "type": "wokwi-ssd1306", "id": "oled1", "top": 0, "left": -250, "attrs": {} }
+    { "type": "board-stm32-bluepill", "id": "bluepill", "top": 0, "left": 0, "attrs": {} }
   ],
-  "connections": [
-    [ "bluepill:PA9", "$serialMonitor:RX", "", [] ],
-    [ "bluepill:PA10", "$serialMonitor:TX", "", [] ],
-    
-    [ "dht1:VCC", "bluepill:3V3.1", "red", [] ],
-    [ "dht1:GND", "bluepill:GND.1", "black", [] ],
-    [ "dht1:SDA", "bluepill:PA0", "green", [] ],
-    
-    [ "ldr1:VCC", "bluepill:3V3.1", "red", [] ],
-    [ "ldr1:GND", "bluepill:GND.1", "black", [] ],
-    [ "ldr1:A0", "bluepill:PA1", "yellow", [] ],
-    
-    [ "pir1:GND", "bluepill:GND.1", "black", [] ],
-    [ "pir1:VCC", "bluepill:5V", "red", [] ],
-    [ "pir1:OUT", "bluepill:PA2", "blue", [] ],
-    
-    [ "encoder1:VCC", "bluepill:3V3.2", "red", [] ],
-    [ "encoder1:GND", "bluepill:GND.2", "black", [] ],
-    [ "encoder1:CLK", "bluepill:PB3", "orange", [] ],
-    [ "encoder1:DT", "bluepill:PB4", "brown", [] ],
-    [ "encoder1:SW", "bluepill:PB5", "purple", [] ],
-    
-    [ "oled1:VCC", "bluepill:3V3.2", "red", [] ],
-    [ "oled1:GND", "bluepill:GND.2", "black", [] ],
-    [ "oled1:SCL", "bluepill:PB6", "white", [] ],
-    [ "oled1:SDA", "bluepill:PB7", "gray", [] ],
-    
-    [ "buzzer1:1", "bluepill:PB8", "orange", [] ],
-    [ "buzzer1:2", "bluepill:GND.2", "black", [] ]
-  ],
+  "connections": [],
   "dependencies": {}
 }
