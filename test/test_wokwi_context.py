@@ -170,7 +170,11 @@ class ContextSwitchTests(unittest.TestCase):
             nonlocal ticks
             if address == (self.symbols["rtos_assert_failed"] & ~1):
                 self.fail("Kernel assertion: " + read_string(cpu.reg_read(UC_ARM_REG_R0)))
-            if address == (self.symbols["_Z11serial_initv"] & ~1):
+            if address == (self.symbols["dht22_init"] & ~1):
+                return_from_call(cpu, 1)
+            elif address == (self.symbols["dht22_read"] & ~1):
+                return_from_call(cpu, 1)  # Sensor not ready; hardware tested manually.
+            elif address == (self.symbols["_Z11serial_initv"] & ~1):
                 return_from_call(cpu)
             elif address == (self.symbols["_Z12serial_writePKc"] & ~1):
                 message = read_string(cpu.reg_read(UC_ARM_REG_R0))

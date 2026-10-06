@@ -4,6 +4,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "dht22.h"
+#include <cstdio>
 
 namespace {
 SemaphoreHandle_t serial_mutex = nullptr;
@@ -44,6 +46,32 @@ void task_b(void *) {
     for (;;) {
         print_diagnostic("Task B running\r\n");
         vTaskDelayUntil(&last_wake, diagnostic_period);
+    }
+}
+
+void sensor_task(void *) {
+    TickType_t last_wake = xTaskGetTickCount();
+    // Let the sensor stabilize before its first transaction.
+    vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000));
+    for (;;) {
+        Dht22Reading reading = {};
+        const Dht22Status status = dht22_read(&reading);
+        char line[112];
+        int length;
+        if (status == Dht22Status::ok) {
+            const int magnitude = reading.temperature_tenths < 0 ?
+                -reading.temperature_tenths : reading.temperature_tenths;
+            length = std::snprintf(line, sizeof(line),
+                "Temperature: %s%d.%02d C\r\nHumidity: %u.%02u %%\r\n",
+                reading.temperature_tenths < 0 ? "-" : "", magnitude / 10,
+                (magnitude % 10) * 10, static_cast<unsigned>(reading.humidity_tenths / 10),
+                static_cast<unsigned>((reading.humidity_tenths % 10) * 10));
+        } else {
+            length = std::snprintf(line, sizeof(line), "DHT22: %s\r\n", dht22_status_text(status));
+        }
+        if (length < 0 || static_cast<size_t>(length) >= sizeof(line)) { fail_stop(); }
+        print_diagnostic(line);
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000));
     }
 }
 } // namespace
@@ -91,7 +119,7 @@ extern "C" void rtos_assert_failed(const char *condition, const char *file,
  * @brief Application main entry point.
  *        Runs after the HAL and system clock are initialized in main().
  *
- *        Part III starts two periodic tasks after the serial startup message.
+ *        Part IV adds SensorTask to the Part III diagnostic tasks.
  */
 extern "C" void app_main(void) {
     if (serial_init() != HAL_OK ||
@@ -104,7 +132,13 @@ extern "C" void app_main(void) {
         fail_stop();
     }
 
-    if (xTaskCreate(task_a, "TaskA", task_stack_words, nullptr, 2, nullptr) != pdPASS ||
+    if (!dht22_init()) {
+        serial_write_fault("DHT22 initialization failed\r\n");
+        fail_stop();
+    }
+
+    if (xTaskCreate(sensor_task, "SensorTask", 384, nullptr, 3, nullptr) != pdPASS ||
+        xTaskCreate(task_a, "TaskA", task_stack_words, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(task_b, "TaskB", task_stack_words, nullptr, 1, nullptr) != pdPASS) {
         fail_stop();
     }
