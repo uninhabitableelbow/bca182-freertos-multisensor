@@ -65,7 +65,7 @@ int main(void) {
 
 // HAL_Init enables SysTick; supply the handler instead of the startup
 // file's weak default so HAL timeouts and delays can advance.
-// FreeRTOS tick integration will replace this in Part III.
+// FreeRTOS tick integration is introduced in Part III.
 extern "C" void SysTick_Handler(void) {
     HAL_IncTick();
 }

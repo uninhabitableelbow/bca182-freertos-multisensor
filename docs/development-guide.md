@@ -1,7 +1,7 @@
 # Step-by-step development
 
-This rebuild uses the `step-by-step` branch. Work on other branches remains
-available. Commit each milestone after its relevant checks pass.
+Develop on the `main` branch. Commit each laboratory milestone after its
+required checks pass, following the sequence in the activity handout.
 
 ## Part I — Project initialization
 
@@ -10,7 +10,15 @@ available. Commit each milestone after its relevant checks pass.
 3. Initialize HAL and configure the 8 MHz HSE / PLL for a 72 MHz CPU clock.
 4. Supply `SysTick_Handler()` so HAL's millisecond counter advances.
 5. Enter `app_main()`. The initial application sleeps awaiting interrupts.
-6. Run `pio run -e bluepill_f103c8`, then commit and push the foundation.
+6. Run `pio run -e bluepill_f103c8`. Do not add sensors or FreeRTOS tasks
+   until this build succeeds.
+7. Save and push the project initialization milestone:
+
+   ```sh
+   git add .
+   git commit -m "Initialize STM32 PlatformIO project"
+   git push
+   ```
 
 `main.cpp` owns MCU startup; `app.cpp` owns application behavior.
 The declaration in `app.h` is compatible with both C and C++.
@@ -43,8 +51,7 @@ Runtime observations and screenshots must come from actual executions.
 ## Part I verification
 
 Environment checked on 2026-10-06: Git 2.54.0.windows.1 and PlatformIO
-Core 6.2.0. The original scaffold compiled before the foundation was revised.
-The revised foundation passed `pio run -e bluepill_f103c8`: 44 bytes RAM
+Core 6.2.0. The foundation passed `pio run -e bluepill_f103c8`: 44 bytes RAM
 and 1,992 bytes flash. Build dependencies: STM32 platform 20.0.0,
 STM32CubeF1 1.8.7, and GCC ARM 7.2.1.
 Simulation and serial output are pending Part II; a build alone does not
