@@ -106,6 +106,12 @@ so an assertion can report its cause even with interrupts disabled.
    measure the duration spent in Ready or Blocked states.
 5. Stop and restart the simulator and confirm the same behavior.
 
+Messages include a tick counter and HAL-time stamp. Consecutive messages
+from the same task should differ by 25 ticks and 250 ms in the Wokwi build.
+Compare these stamps separately from wall-clock time and the simulator's
+displayed time. One pair of messages without later output indicates a
+stalled tick or scheduler, rather than establishing a slower frequency.
+
 ## Verification record
 
 Checks completed on 2026-10-06:

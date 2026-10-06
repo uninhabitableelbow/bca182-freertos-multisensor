@@ -48,7 +48,9 @@ pio run
 The Part II circuit contains only the Blue Pill. USART1 TX (PA9) connects
 to the Serial Monitor RX, and USART1 RX (PA10) connects to its TX.
 Serial uses 115200 baud, 8 data bits, no parity, and one stop bit.
-The task messages repeat every 250 simulated milliseconds (about 4 Hz). Task A has priority 2,
+The task messages include tick and HAL-time stamps and repeat every 250
+firmware milliseconds (about 4 Hz). These are simulated-time intervals;
+slow simulation can make them take longer in wall-clock time. Task A has priority 2,
 Task B priority 1; both use `vTaskDelayUntil()` between executions.
 A mutex protects their shared USART1 output. No sensors are connected yet.
 

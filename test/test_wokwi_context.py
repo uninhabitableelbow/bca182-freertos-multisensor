@@ -179,7 +179,11 @@ class ContextSwitchTests(unittest.TestCase):
         self.cpu.emu_start(self.symbols["app_main"] | 1, self.return_a, count=2000000)
         self.cpu.hook_del(hook)
         diagnostics = [(t, m) for t, m in messages if "Task" in m]
-        self.assertEqual([m for _, m in diagnostics], ["Task A running\r\n", "Task B running\r\n"] * 4)
+        expected = []
+        for tick in [0, 25, 50, 75]:
+            for label in ["A", "B"]:
+                expected.append(f"Task {label} running [tick={tick}, time={tick * 10} ms]\r\n")
+        self.assertEqual([m for _, m in diagnostics], expected)
         self.assertEqual([t for t, m in diagnostics if "Task A" in m], [0, 25, 50, 75])
         self.assertEqual([t for t, m in diagnostics if "Task B" in m], [0, 25, 50, 75])
         self.assertEqual(self.read_word(self.symbols["uwTick"]), 750)

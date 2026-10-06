@@ -4,6 +4,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include <cstdio>
 
 namespace {
 SemaphoreHandle_t serial_mutex = nullptr;
@@ -19,7 +20,14 @@ void print_diagnostic(const char *message) {
     if (xSemaphoreTake(serial_mutex, portMAX_DELAY) != pdTRUE) {
         fail_stop();
     }
-    const HAL_StatusTypeDef status = serial_write(message);
+    char line[80];
+    const unsigned long tick = static_cast<unsigned long>(xTaskGetTickCount());
+    const int length = std::snprintf(line, sizeof(line), "%s [tick=%lu, time=%lu ms]\r\n",
+        message, tick, static_cast<unsigned long>(HAL_GetTick()));
+    if (length < 0 || static_cast<size_t>(length) >= sizeof(line)) {
+        fail_stop();
+    }
+    const HAL_StatusTypeDef status = serial_write(line);
     const BaseType_t released = xSemaphoreGive(serial_mutex);
     if (status != HAL_OK || released != pdTRUE) {
         fail_stop();
@@ -29,7 +37,7 @@ void print_diagnostic(const char *message) {
 void task_a(void *) {
     TickType_t last_wake = xTaskGetTickCount();
     for (;;) {
-        print_diagnostic("Task A running\r\n");
+        print_diagnostic("Task A running");
         vTaskDelayUntil(&last_wake, diagnostic_period);
     }
 }
@@ -37,7 +45,7 @@ void task_a(void *) {
 void task_b(void *) {
     TickType_t last_wake = xTaskGetTickCount();
     for (;;) {
-        print_diagnostic("Task B running\r\n");
+        print_diagnostic("Task B running");
         vTaskDelayUntil(&last_wake, diagnostic_period);
     }
 }
