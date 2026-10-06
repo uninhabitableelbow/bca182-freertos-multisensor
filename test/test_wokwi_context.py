@@ -116,19 +116,41 @@ class ContextSwitchTests(unittest.TestCase):
         self.assertEqual(self.cpu.reg_read(UC_ARM_REG_MSP), 0x20008000)
         self.assertEqual(self.cpu.reg_read(UC_ARM_REG_PRIMASK), 0)
 
+    def test_hal_time_handles_counter_wrap_without_advancing_kernel(self):
+        self.cpu.mem_map(0x40000000, 0x30000)
+        self.write_word(self.symbols["tick_timer"], 0x40000400)
+        self.write_word(self.symbols["timer_running"], 1)
+        self.cpu.mem_write(self.symbols["last_timer_count"], struct.pack("<H", 65530))
+        self.write_word(self.symbols["uwTick"], 0xFFFFFFF0)
+        self.write_word(self.symbols["xTickCount"], 117)
+        self.cpu.reg_write(UC_ARM_REG_PRIMASK, 1)
+
+        # Counter wrap contributes eleven milliseconds; the second sample
+        # wraps the uint32_t HAL clock. Neither read may change kernel lists
+        # or ticks, and both must preserve the caller's interrupt mask.
+        for counter, expected_time in [(5, 0xFFFFFFFB), (12, 2), (12, 2)]:
+            self.write_word(0x40000424, counter)  # TIM3 CNT.
+            self.cpu.reg_write(UC_ARM_REG_LR, self.return_a | 1)
+            self.cpu.emu_start(self.symbols["HAL_GetTick"] | 1,
+                               self.return_a, count=300)
+            self.assertEqual(self.cpu.reg_read(UC_ARM_REG_PC), self.return_a)
+            self.assertEqual(self.cpu.reg_read(UC_ARM_REG_R0), expected_time)
+            self.assertEqual(self.read_word(self.symbols["uwTick"]), expected_time)
+            self.assertEqual(self.read_word(self.symbols["xTickCount"]), 117)
+            self.assertEqual(self.cpu.reg_read(UC_ARM_REG_PRIMASK), 1)
+
     def test_kernel_tasks_repeat_after_periodic_blocking(self):
         # Exercise the real app, mutex, heap, task creation, tick processing,
         # task selection and ARM port. Only peripheral setup/I/O are stubbed.
-        # An Idle call injects TIM3's update handler; no hardware exception or
-        # fake task-selection hook is involved in this test.
+        # An Idle call advances TIM3's counter by ten milliseconds. The real
+        # port samples that counter at the next yield; no timer ISR or fake
+        # task-selection hook is involved in this test.
         self.cpu.mem_map(0x40000000, 0x30000)
         self.write_word(0x40021004, 0)  # Simulation uses undivided 8 MHz HSI.
         self.cpu.reg_write(UC_ARM_REG_CONTROL, 0)
         self.cpu.reg_write(UC_ARM_REG_PRIMASK, 0)
         self.cpu.reg_write(UC_ARM_REG_LR, self.return_a | 1)
         messages = []
-        tick_return = 0x0800F100
-        interrupt_return = None
         ticks = 0
 
         def return_from_call(cpu, result=0):
@@ -145,7 +167,7 @@ class ContextSwitchTests(unittest.TestCase):
                 address += 1
 
         def intercept(cpu, address, size, user_data):
-            nonlocal interrupt_return, ticks
+            nonlocal ticks
             if address == (self.symbols["rtos_assert_failed"] & ~1):
                 self.fail("Kernel assertion: " + read_string(cpu.reg_read(UC_ARM_REG_R0)))
             if address == (self.symbols["_Z11serial_initv"] & ~1):
@@ -160,33 +182,26 @@ class ContextSwitchTests(unittest.TestCase):
                 return_from_call(cpu)
             elif address == (self.symbols["HAL_RCC_GetPCLK1Freq"] & ~1):
                 return_from_call(cpu, 8000000)
-            elif address in [(self.symbols[name] & ~1) for name in ["HAL_TIM_Base_Init", "HAL_TIM_Base_Start_IT"]]:
+            elif address in [(self.symbols[name] & ~1) for name in ["HAL_TIM_Base_Init", "HAL_TIM_Base_Start"]]:
                 return_from_call(cpu)
             elif address == (self.symbols["vApplicationIdleHook"] & ~1):
-                interrupt_return = cpu.reg_read(UC_ARM_REG_LR)
-                self.write_word(0x4000040C, 1)  # TIM3 DIER: update enabled.
-                self.write_word(0x40000410, 1)  # TIM3 SR: update pending.
-                cpu.reg_write(UC_ARM_REG_PRIMASK, 1)
-                cpu.reg_write(UC_ARM_REG_LR, tick_return | 1)
-                cpu.reg_write(UC_ARM_REG_PC, self.symbols["TIM3_IRQHandler"] | 1)
+                counter = self.read_word(0x40000424)  # TIM3 CNT.
+                self.write_word(0x40000424, (counter + 10) & 0xFFFF)
                 ticks += 1
-            elif address == tick_return:
-                cpu.reg_write(UC_ARM_REG_PRIMASK, 0)
-                cpu.reg_write(UC_ARM_REG_LR, interrupt_return)
-                cpu.reg_write(UC_ARM_REG_PC, interrupt_return)
+                return_from_call(cpu)
 
         hook = self.cpu.hook_add(UC_HOOK_CODE, intercept)
         self.cpu.emu_start(self.symbols["app_main"] | 1, self.return_a, count=2000000)
         self.cpu.hook_del(hook)
         diagnostics = [(t, m) for t, m in messages if "Task" in m]
         expected = []
-        for tick in [0, 10, 20, 30]:
+        for tick in [0, 100, 200, 300]:
             for label in ["A", "B"]:
                 expected.append(f"Task {label} running\r\n")
         self.assertEqual([m for _, m in diagnostics], expected)
-        self.assertEqual([t for t, m in diagnostics if "Task A" in m], [0, 10, 20, 30])
-        self.assertEqual([t for t, m in diagnostics if "Task B" in m], [0, 10, 20, 30])
-        self.assertEqual(self.read_word(self.symbols["uwTick"]), 300)
+        self.assertEqual([t for t, m in diagnostics if "Task A" in m], [0, 100, 200, 300])
+        self.assertEqual([t for t, m in diagnostics if "Task B" in m], [0, 100, 200, 300])
+        self.assertEqual(self.read_word(self.symbols["uwTick"]), 3000)
 
 
 if __name__ == "__main__":

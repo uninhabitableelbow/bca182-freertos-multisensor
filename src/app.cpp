@@ -8,7 +8,7 @@
 namespace {
 SemaphoreHandle_t serial_mutex = nullptr;
 constexpr uint16_t task_stack_words = 256; // 1 KiB per task on Cortex-M3.
-constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(100);
+constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(1000);
 
 [[noreturn]] void fail_stop() {
     __disable_irq();
@@ -21,7 +21,12 @@ void print_diagnostic(const char *message) {
     }
     const HAL_StatusTypeDef status = serial_write(message);
     const BaseType_t released = xSemaphoreGive(serial_mutex);
-    if (status != HAL_OK || released != pdTRUE) {
+    if (status != HAL_OK) {
+        serial_write_fault("UART transmission failed\r\n");
+        fail_stop();
+    }
+    if (released != pdTRUE) {
+        serial_write_fault("Serial mutex release failed\r\n");
         fail_stop();
     }
 }
@@ -51,9 +56,9 @@ extern "C" void vApplicationMallocFailedHook(void) {
 
 #ifdef WOKWI_FREERTOS_PORT
 extern "C" void vApplicationIdleHook(void) {
-    // The cooperative kernel yields in its Idle loop before this hook.
-    // TIM3 wakes the CPU; a task becoming Ready is selected on the next loop.
-    __WFI();
+    // Return to the cooperative kernel's Idle loop, which yields each pass.
+    // The Wokwi port samples TIM3 at safe yields instead of using a tick IRQ.
+    // Stay awake so time advances while application tasks are blocked.
 }
 #endif
 

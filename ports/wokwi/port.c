@@ -2,7 +2,8 @@
  * Wokwi STM32F103 Thread-mode port for the unchanged FreeRTOS V10.3.1 kernel.
  *
  * Task switches are ordinary calls on PSP; interrupts continue to use MSP.
- * TIM3 advances the kernel at 100 Hz, without switching inside an exception.
+ * A free-running TIM3 counter supplies elapsed time. Safe Thread-mode yields
+ * advance the kernel at 100 Hz, without a timer interrupt or exception return.
  * This implements cooperative scheduling, not interrupt-driven preemption.
  *
  * Wokwi's missing NVIC-priority/SVC/PendSV behavior was independently reported
@@ -18,7 +19,7 @@
 #error "The Wokwi Thread-mode port requires cooperative scheduling"
 #endif
 #if configTICK_RATE_HZ != 100
-#error "The Wokwi TIM3 timebase requires a 100 Hz RTOS tick"
+#error "The Wokwi polled TIM3 timebase requires a 100 Hz RTOS tick"
 #endif
 #if configUSE_TICKLESS_IDLE != 0
 #error "Tickless idle is not implemented by the Wokwi Thread-mode port"
@@ -30,6 +31,42 @@ extern __IO uint32_t uwTick;
 static volatile UBaseType_t critical_nesting __attribute__((used));
 static volatile uint32_t saved_outer_mask __attribute__((used));
 static TIM_HandleTypeDef tick_timer;
+static BaseType_t timer_running;
+static uint16_t last_timer_count;
+static uint32_t last_kernel_ms;
+
+/* HAL time must progress even while UART polling has not yielded. Keeping
+ * this separate from the kernel tick also avoids changing task lists inside
+ * driver calls. Sample at least once per 65.536 seconds (TIM3's wrap period).
+ */
+uint32_t HAL_GetTick(void) {
+    const uint32_t previous_mask = ulPortSaveInterruptMask();
+    if (timer_running != pdFALSE) {
+        const uint16_t count = (uint16_t)__HAL_TIM_GET_COUNTER(&tick_timer);
+        uwTick += (uint16_t)(count - last_timer_count);
+        last_timer_count = count;
+    }
+    const uint32_t now = uwTick;
+    vPortRestoreInterruptMask(previous_mask);
+    return now;
+}
+
+static void prvAdvanceKernelClock(void) {
+    /* Blocking kernel APIs can yield inside a critical section. Defer clock
+     * processing until Idle or another task reaches an unmasked safe yield.
+     */
+    if (critical_nesting != 0U || __get_PRIMASK() != 0U) {
+        return;
+    }
+    const uint32_t previous_mask = ulPortSaveInterruptMask();
+    const uint32_t now = HAL_GetTick();
+    const uint32_t tick_ms = 1000U / configTICK_RATE_HZ;
+    while ((uint32_t)(now - last_kernel_ms) >= tick_ms) {
+        last_kernel_ms += tick_ms;
+        (void)xTaskIncrementTick();
+    }
+    vPortRestoreInterruptMask(previous_mask);
+}
 
 static void prvSwitchContext(void) __attribute__((naked, noinline, used));
 static void prvStartFirstTask(void) __attribute__((naked, noinline, used, noreturn));
@@ -139,6 +176,7 @@ static void prvStartFirstTask(void) {
 void vPortYield(void) {
     configASSERT(__get_IPSR() == 0U);
     configASSERT((__get_CONTROL() & CONTROL_SPSEL_Msk) != 0U);
+    prvAdvanceKernelClock();
     prvSwitchContext();
 }
 
@@ -172,7 +210,7 @@ static void prvSetupTickTimer(void) {
     if ((RCC->CFGR & RCC_CFGR_PPRE1) != 0U) {
         timer_clock *= 2U;
     }
-    const uint32_t counter_frequency = 1000000U;
+    const uint32_t counter_frequency = 1000U;
     configASSERT(timer_clock >= counter_frequency);
     configASSERT(timer_clock % counter_frequency == 0U);
     const uint32_t divider = timer_clock / counter_frequency;
@@ -181,28 +219,18 @@ static void prvSetupTickTimer(void) {
     tick_timer.Instance = TIM3;
     tick_timer.Init.Prescaler = divider - 1U;
     tick_timer.Init.CounterMode = TIM_COUNTERMODE_UP;
-    tick_timer.Init.Period = counter_frequency / configTICK_RATE_HZ - 1U;
+    tick_timer.Init.Period = 0xffffU;
     tick_timer.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     tick_timer.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     configASSERT(HAL_TIM_Base_Init(&tick_timer) == HAL_OK);
     __HAL_TIM_CLEAR_FLAG(&tick_timer, TIM_FLAG_UPDATE);
+    __HAL_TIM_DISABLE_IT(&tick_timer, TIM_IT_UPDATE);
+    NVIC_DisableIRQ(TIM3_IRQn);
     NVIC_ClearPendingIRQ(TIM3_IRQn);
-    NVIC_SetPriority(TIM3_IRQn, configLIBRARY_LOWEST_INTERRUPT_PRIORITY);
-    NVIC_EnableIRQ(TIM3_IRQn);
-    configASSERT(HAL_TIM_Base_Start_IT(&tick_timer) == HAL_OK);
-}
-
-void TIM3_IRQHandler(void) {
-    HAL_TIM_IRQHandler(&tick_timer);
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *timer) {
-    if (timer->Instance == TIM3) {
-        const uint32_t previous_mask = ulPortSaveInterruptMask();
-        uwTick += 1000U / configTICK_RATE_HZ;
-        (void)xTaskIncrementTick();
-        vPortRestoreInterruptMask(previous_mask);
-    }
+    configASSERT(HAL_TIM_Base_Start(&tick_timer) == HAL_OK);
+    last_timer_count = (uint16_t)__HAL_TIM_GET_COUNTER(&tick_timer);
+    last_kernel_ms = uwTick;
+    timer_running = pdTRUE;
 }
 
 BaseType_t xPortStartScheduler(void) {

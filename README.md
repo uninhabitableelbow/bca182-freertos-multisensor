@@ -48,7 +48,7 @@ pio run
 The Part II circuit contains only the Blue Pill. USART1 TX (PA9) connects
 to the Serial Monitor RX, and USART1 RX (PA10) connects to its TX.
 Serial uses 115200 baud, 8 data bits, no parity, and one stop bit.
-The distinct task messages repeat every 100 firmware milliseconds (10 Hz each). These are simulated-time intervals;
+The distinct task messages repeat every 1000 firmware milliseconds (1 Hz each). These are simulated-time intervals;
 slow simulation can make them take longer in wall-clock time. Task A has priority 2,
 Task B priority 1; both use `vTaskDelayUntil()` between executions.
 A mutex protects their shared USART1 output. No sensors are connected yet.
@@ -65,24 +65,24 @@ Native APIs are used throughout; no CMSIS-RTOS or Arduino wrapper is used.
 
 - `bluepill_wokwi` uses a simulator port with cooperative Thread-mode
   switching at an 8 MHz HSI CPU clock to reduce simulator workload,
-  and a 100 Hz TIM3 tick. Higher-priority ready tasks run
+  and a 100 Hz kernel tick derived from a polled TIM3 counter. Higher-priority ready tasks run
   at the next yield or blocking call. This build cannot demonstrate interrupt
   preemption. Each application task must perform bounded work and block.
 - `bluepill_f103c8` uses the unmodified GCC Cortex-M3 port with preemption
   and a 1 kHz SysTick. Build it for physical hardware with
   `pio run -e bluepill_f103c8`.
 
-The simulator's TIM3 tick advances HAL time by 10 ms and FreeRTOS time by
-one tick. See [Part III scheduling notes](docs/part-iii-scheduling.md)
+The simulator reads TIM3 at 1-ms resolution for HAL time. At safe yields,
+it advances FreeRTOS by one tick per 10 elapsed ms without a timer interrupt. See [Part III scheduling notes](docs/part-iii-scheduling.md)
 for task priorities, periods, states, and the simulator verification procedure.
 
 ## Port verification
 
 `test/test_wokwi_context.py` executes the compiled ARM instructions under
-Unicorn. Its five tests cover task-register/stack preservation, nested
+Unicorn. Its tests cover task-register/stack preservation, nested
 critical sections, interrupt-mask restoration, first-task startup, and
 recurring Task A/B output using the real FreeRTOS kernel. Peripheral I/O and
-tick delivery are modeled; this is separate from Wokwi runtime verification.
+timer counter progression are modeled; this is separate from Wokwi runtime verification.
 
 ```sh
 python -m pip install --target .pio/verification-deps unicorn==2.1.4 pyelftools

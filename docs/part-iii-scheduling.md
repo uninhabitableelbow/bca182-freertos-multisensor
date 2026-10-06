@@ -7,8 +7,8 @@ Both perform finite work and block between executions.
 
 | Task | Responsibility | Priority | Period | Stack | Typical blocked condition |
 | --- | --- | --- | --- | --- | --- |
-| TaskA | Print `Task A running` | 2 | 100 ms (10 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
-| TaskB | Print `Task B running` | 1 | 100 ms (10 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
+| TaskA | Print `Task A running` | 2 | 1000 ms (1 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
+| TaskB | Print `Task B running` | 1 | 1000 ms (1 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
 | Idle | Kernel housekeeping | 0 | When no application task is ready | 128 words / 512 bytes | Normally ready |
 
 Task A has the higher priority to make priority selection observable:
@@ -22,7 +22,7 @@ the next release relative to that time, limiting drift caused by execution
 time. In contrast, `vTaskDelay()` waits relative to when it is called, adding
 the work duration to each cycle. If a task overruns its period, an already
 expired release does not block; neither diagnostic should overrun its
-100-ms period during normal operation.
+1000-ms period during normal operation.
 
 ## Task states in this implementation
 
@@ -34,6 +34,23 @@ expired release does not block; neither diagnostic should overrun its
 - **Suspended:** removed from scheduling until explicitly resumed. Neither
   diagnostic task is explicitly suspended.
 - **Deleted:** removed by task deletion. Neither diagnostic task is deleted.
+
+### Step 18: scheduling sequence
+
+At startup, both tasks are Ready. The scheduler selects Task A (priority 2)
+before Task B (priority 1). A is Running while printing, then becomes Blocked
+in `vTaskDelayUntil()`. B becomes Running, prints, and blocks. While both are
+Blocked, Idle runs and services the polled timebase; the application tasks
+consume no CPU during that blocked interval.
+
+At each task's next 1000-ms release, it becomes Ready. At the next scheduling
+point, the highest-priority Ready task becomes Running. If both releases
+coincide, A runs first and B waits Ready until A blocks. Each task's configured
+execution frequency is 1 Hz. These states follow from the implementation;
+plain serial output alone does not measure the time spent in each state.
+
+The screenshot's SensorTask example illustrates the same states. Part III
+uses Task A and Task B; the sensor task is introduced in a later part.
 
 Serial polling performs bounded work while the task is running; it is not
 an RTOS blocked wait. The task then enters its periodic blocked wait.
@@ -49,12 +66,25 @@ assertions, allocation failures, and stack overflows enter a fail-stop loop.
 
 The default `bluepill_wokwi` environment uses `ports/wokwi`: cooperative
 switching with an 8 MHz HSI CPU clock to reduce simulator workload.
-The 100 Hz TIM3 tick is derived from that clock. Task context uses PSP while
-interrupts use MSP. Each task's 48-byte context frame preserves r4–r11,
-the return address, critical-section nesting, PRIMASK, and the mask saved
-by the outermost critical-section entry. PRIMASK protects critical sections.
-The tick handler advances FreeRTOS by one tick and HAL time by 10 ms;
-the cooperative Idle task yields and sleeps between timer events.
+TIM3 counts at 1 kHz without an interrupt. `HAL_GetTick()` samples its
+16-bit counter and accumulates milliseconds, so UART timeouts advance even
+while a driver is polling. At a yield outside critical sections with
+interrupts unmasked, the port advances FreeRTOS once per 10 elapsed ms
+before selecting the next task. Elapsed time remains pending across other
+yields. Kernel tick updates never run inside `HAL_GetTick()`.
+
+Task context uses PSP while interrupts use MSP. Each task's 48-byte context
+frame preserves r4-r11, the return address, critical-section nesting,
+PRIMASK, and the mask saved by the outermost critical-section entry.
+The cooperative Idle task yields continuously, allowing blocked tasks to
+become Ready as time passes. It does not execute `WFI`; no TIM3 exception
+entry or return is needed for periodic task execution.
+
+The timer must be sampled within its 65.536-second wrap period. The current
+1000-ms tasks and bounded UART operations meet this limit. Cooperative tasks
+must continue to yield regularly; CPU activity during Idle can affect
+simulation speed. The restored 1-second period should be checked in the
+next manual Wokwi run.
 
 The physical `bluepill_f103c8` environment compiles the standard GCC
 Cortex-M3 port unchanged: preemptive scheduling, SVC/PendSV switches,
@@ -99,18 +129,27 @@ so an assertion can report its cause even with interrupts disabled.
    Task B running
    ```
 
-4. Observe output for at least 3 simulated seconds; count approximately ten
+4. Observe output for at least 3 simulated seconds; count approximately one
    lines per simulated second from each task. Serial text indicates execution; it does not directly
    measure the duration spent in Ready or Blocked states.
 5. Stop and restart the simulator and confirm the same behavior.
 
-The tasks retain a 100-ms blocked period using `vTaskDelayUntil()`. Output
+The tasks retain a 1000-ms blocked period using `vTaskDelayUntil()`. Output
 contains only `Task A running` and `Task B running`, without debug timestamps.
 Verify recurrence using simulated time; simulation checks are performed manually.
 
 ## Verification record
 
-Checks completed on 2026-10-06:
+The polled timebase compiles for both environments (2026-10-07), using a
+separate `.pio/compile-check` build directory to avoid triggering Wokwi
+reloads. Instruction inspection confirms 100-tick task delays (1000 ms),
+an Idle hook without `WFI`, and timer startup without interrupt mode.
+The counter-based regression tests have been updated but have not been run;
+the user reported Part III complete before restoring the original 1-second
+period. Simulation checks remain with the user; no measured frequency or
+state-duration trace is recorded here.
+
+Historical checks completed on 2026-10-06, before the polled timebase change:
 
 - `pio run -e bluepill_wokwi -e bluepill_f103c8`: both builds passed.
 - Wokwi build: 8,660 bytes RAM, 11,528 bytes flash.
@@ -125,10 +164,9 @@ Checks completed on 2026-10-06:
   Thread mode; this does not verify Wokwi's interrupt delivery, exception
   return, WFI wakeup, or UART simulation.
 
-The Serial Monitor observations establish startup output and the repeated
-priority-width assertion for the earlier integration. Wokwi task output
-using the cooperative port is pending confirmation. No measured simulator
-task frequency is claimed yet.
+Earlier Serial Monitor observations captured the startup output and the
+priority-width assertion. The user subsequently reported Part III complete.
+The configured 1 Hz frequency is distinct from a measured timing result.
 
 ## References
 
