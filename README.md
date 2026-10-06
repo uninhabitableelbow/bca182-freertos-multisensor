@@ -8,8 +8,8 @@ part, so the git history documents the evolution of the system:
 
 | Part  | Milestone                                        |
 |-------|--------------------------------------------------|
-| I     | Project initialization (STM32Cube PlatformIO project) |
-| II    | Wokwi simulation (Blue Pill + serial message)     |
+| I     | Current: STM32Cube foundation, compile verification |
+| II    | Next: Wokwi simulation (Blue Pill + serial message) |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -30,4 +30,17 @@ pio run
 
 ## Simulation (Wokwi)
 
-Run from the PlatformIO / Wokwi VS Code extension or the Wokwi web app.
+Wokwi configuration will be added in Part II. This initial milestone has
+no serial output, sensors, or FreeRTOS tasks yet.
+
+## Step-by-step guide
+
+See [development notes](docs/development-guide.md) for Part I instructions
+and the planned milestones. The platform is pinned to `ststm32@20.0.0`.
+
+## References and acknowledgments
+
+Requirements: *BCA182 — Laboratory Activity No. 1: Real-Time Multisensor Room
+Monitoring System*, Asst. Prof. Paul Rodolf P. Castor, September 2026.
+The handout's isolated ESP-IDF mention conflicts with its required STM32Cube
+framework and example; this project follows the STM32Cube requirement.

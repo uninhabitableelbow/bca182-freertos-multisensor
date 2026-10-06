@@ -1,4 +1,5 @@
 #include "app.h"
+#include "stm32f1xx_hal.h"
 
 /**
  * @brief Application main entry point.
@@ -9,5 +10,9 @@
  *        (laboratory PART I, step 14 - "First Build").
  */
 extern "C" void app_main(void) {
-    // Intentionally empty. FreeRTOS tasks start in PART III.
+    // Part I has no application peripherals. Sleep between interrupts.
+    // FreeRTOS tasks start in Part III.
+    while (1) {
+        __WFI();
+    }
 }

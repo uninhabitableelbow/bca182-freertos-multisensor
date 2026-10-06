@@ -5,6 +5,14 @@
  * @brief Application main entry point.
  *        Called from main() after HAL and system-clock initialization.
  */
-extern "C" void app_main(void);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void app_main(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // APP_H

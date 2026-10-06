@@ -47,7 +47,10 @@ void SystemClock_Config(void) {
  */
 int main(void) {
     // Initialize the HAL library
-    HAL_Init();
+    if (HAL_Init() != HAL_OK) {
+        __disable_irq();
+        while (1) { }
+    }
 
     // Configure the system clock to 72 MHz
     SystemClock_Config();
@@ -56,6 +59,13 @@ int main(void) {
     app_main();
 
     // Should never reach here
-    while (1) { }
+    while (1) { __WFI(); }
     return 0;
+}
+
+// HAL_Init enables SysTick; supply the handler instead of the startup
+// file's weak default so HAL timeouts and delays can advance.
+// FreeRTOS tick integration will replace this in Part III.
+extern "C" void SysTick_Handler(void) {
+    HAL_IncTick();
 }
