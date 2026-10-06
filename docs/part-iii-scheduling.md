@@ -7,8 +7,8 @@ Both perform finite work and block between executions.
 
 | Task | Responsibility | Priority | Period | Stack | Typical blocked condition |
 | --- | --- | --- | --- | --- | --- |
-| TaskA | Print `Task A running` | 2 | 250 ms (~4 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
-| TaskB | Print `Task B running` | 1 | 250 ms (~4 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
+| TaskA | Print `Task A running` | 2 | 100 ms (10 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
+| TaskB | Print `Task B running` | 1 | 100 ms (10 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
 | Idle | Kernel housekeeping | 0 | When no application task is ready | 128 words / 512 bytes | Normally ready |
 
 Task A has the higher priority to make priority selection observable:
@@ -22,7 +22,7 @@ the next release relative to that time, limiting drift caused by execution
 time. In contrast, `vTaskDelay()` waits relative to when it is called, adding
 the work duration to each cycle. If a task overruns its period, an already
 expired release does not block; neither diagnostic should overrun its
-250-ms period during normal operation.
+100-ms period during normal operation.
 
 ## Task states in this implementation
 
@@ -99,12 +99,12 @@ so an assertion can report its cause even with interrupts disabled.
    Task B running
    ```
 
-4. Observe output for at least 3 simulated seconds; count approximately four
+4. Observe output for at least 3 simulated seconds; count approximately ten
    lines per simulated second from each task. Serial text indicates execution; it does not directly
    measure the duration spent in Ready or Blocked states.
 5. Stop and restart the simulator and confirm the same behavior.
 
-The tasks retain a 250-ms blocked period using `vTaskDelayUntil()`. Output
+The tasks retain a 100-ms blocked period using `vTaskDelayUntil()`. Output
 contains only `Task A running` and `Task B running`, without debug timestamps.
 Verify recurrence using simulated time; simulation checks are performed manually.
 

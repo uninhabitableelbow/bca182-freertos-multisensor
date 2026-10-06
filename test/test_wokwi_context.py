@@ -180,13 +180,13 @@ class ContextSwitchTests(unittest.TestCase):
         self.cpu.hook_del(hook)
         diagnostics = [(t, m) for t, m in messages if "Task" in m]
         expected = []
-        for tick in [0, 25, 50, 75]:
+        for tick in [0, 10, 20, 30]:
             for label in ["A", "B"]:
                 expected.append(f"Task {label} running\r\n")
         self.assertEqual([m for _, m in diagnostics], expected)
-        self.assertEqual([t for t, m in diagnostics if "Task A" in m], [0, 25, 50, 75])
-        self.assertEqual([t for t, m in diagnostics if "Task B" in m], [0, 25, 50, 75])
-        self.assertEqual(self.read_word(self.symbols["uwTick"]), 750)
+        self.assertEqual([t for t, m in diagnostics if "Task A" in m], [0, 10, 20, 30])
+        self.assertEqual([t for t, m in diagnostics if "Task B" in m], [0, 10, 20, 30])
+        self.assertEqual(self.read_word(self.symbols["uwTick"]), 300)
 
 
 if __name__ == "__main__":
