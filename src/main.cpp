@@ -5,7 +5,9 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#ifndef WOKWI_FREERTOS_PORT
 extern "C" void xPortSysTickHandler(void);
+#endif
 
 /**
  * @brief System Clock Configuration
@@ -67,11 +69,13 @@ int main(void) {
     return 0;
 }
 
-// Both HAL and FreeRTOS use a 1 ms tick. Advance HAL even before scheduling;
-// forward to the kernel only once its task lists are ready.
+// HAL startup uses a 1 ms SysTick. The hardware port shares it with FreeRTOS;
+// the Wokwi port disables it at scheduler start and uses TIM3 instead.
 extern "C" void SysTick_Handler(void) {
     HAL_IncTick();
+#ifndef WOKWI_FREERTOS_PORT
     if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
         xPortSysTickHandler();
     }
+#endif
 }

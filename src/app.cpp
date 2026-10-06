@@ -49,6 +49,14 @@ extern "C" void vApplicationMallocFailedHook(void) {
     fail_stop();
 }
 
+#ifdef WOKWI_FREERTOS_PORT
+extern "C" void vApplicationIdleHook(void) {
+    // The cooperative kernel yields in its Idle loop before this hook.
+    // TIM3 wakes the CPU; a task becoming Ready is selected on the next loop.
+    __WFI();
+}
+#endif
+
 extern "C" void vApplicationStackOverflowHook(TaskHandle_t, char *) {
     __disable_irq();
     serial_write_fault("FreeRTOS task stack overflow\r\n");
@@ -85,6 +93,31 @@ extern "C" void app_main(void) {
         serial_write("BCA182 FreeRTOS Multisensor\r\nSystem starting...\r\n") != HAL_OK) {
         fail_stop();
     }
+
+    // Report priority-register readbacks for simulator diagnosis; restore the
+    // word before task creation. The Wokwi port does not depend on this probe.
+    volatile uint32_t *priority_word = reinterpret_cast<volatile uint32_t *>(0xe000e400UL);
+    volatile uint8_t *priority_byte = reinterpret_cast<volatile uint8_t *>(0xe000e400UL);
+    const uint32_t original = *priority_word;
+    *priority_byte = 0xff;
+    const uint8_t byte_readback = *priority_byte;
+    *priority_word = (original & 0xffffff00UL) | 0xff;
+    const uint8_t word_readback = static_cast<uint8_t>(*priority_word);
+    *priority_word = original;
+    const char hex[] = "0123456789ABCDEF";
+    char byte_digits[] = {hex[byte_readback >> 4], hex[byte_readback & 0x0f], '\0'};
+    char word_digits[] = {hex[word_readback >> 4], hex[word_readback & 0x0f], '\0'};
+    serial_write_fault("NVIC probe: byte=0x");
+    serial_write_fault(byte_digits);
+    serial_write_fault(" word=0x");
+    serial_write_fault(word_digits);
+    serial_write_fault("\r\n");
+
+#ifdef WOKWI_FREERTOS_PORT
+    if (serial_write("FreeRTOS scheduler: Wokwi cooperative, 100 Hz\r\n") != HAL_OK) {
+        fail_stop();
+    }
+#endif
 
     serial_mutex = xSemaphoreCreateMutex();
     if (serial_mutex == nullptr) {

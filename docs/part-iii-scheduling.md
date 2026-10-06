@@ -12,7 +12,9 @@ Both perform finite work and block between executions.
 | Idle | Kernel housekeeping | 0 | When no application task is ready | 128 words / 512 bytes | Normally ready |
 
 Task A has the higher priority to make priority selection observable:
-when both tasks are ready, A runs first. These are demonstration priorities;
+when both tasks are ready at a scheduling point, A runs first. In the Wokwi
+build, scheduling points are yields and blocking calls; becoming Ready does
+not interrupt the currently running task. These are demonstration priorities;
 later sensor and input tasks will receive priorities based on their duties.
 
 Each task stores its own previous wake time. `vTaskDelayUntil()` schedules
@@ -40,29 +42,43 @@ inheritance if A must wait while B owns it.
 
 ## Kernel integration
 
-The project compiles STM32CubeF1's FreeRTOS V10.3.1 kernel and its GCC
-Cortex-M3 port using `scripts/freertos.py`. The `heap_4` allocator has an
+The project compiles STM32CubeF1's unchanged FreeRTOS V10.3.1 kernel using
+`scripts/freertos.py`. The `heap_4` allocator has an
 8 KiB heap. Allocation and task creation results are checked; kernel
 assertions, allocation failures, and stack overflows enter a fail-stop loop.
 
-The tick rate is 1,000 Hz, matching HAL's 1 ms time base. SysTick always
-increments the HAL counter and calls the kernel tick handler after the
-scheduler starts. The port supplies SVC and PendSV for context switching.
-Tickless idle is disabled, so HAL's millisecond counter remains consistent.
+The default `bluepill_wokwi` environment uses `ports/wokwi`: cooperative
+Thread-mode switching with a 100 Hz TIM3 tick. Task context uses PSP while
+interrupts use MSP. Each task's 48-byte context frame preserves r4–r11,
+the return address, critical-section nesting, PRIMASK, and the mask saved
+by the outermost critical-section entry. PRIMASK protects critical sections.
+The tick handler advances FreeRTOS by one tick and HAL time by 10 ms;
+the cooperative Idle task yields and sleeps between timer events.
 
-### Wokwi NVIC compatibility
+The physical `bluepill_f103c8` environment compiles the standard GCC
+Cortex-M3 port unchanged: preemptive scheduling, SVC/PendSV switches,
+and a shared 1 kHz HAL/FreeRTOS SysTick. Tickless idle is disabled in both
+environments. Demonstrations of interrupt preemption require physical hardware.
+
+### Wokwi compatibility
 
 The first simulator run displayed the startup lines but stopped at the
 FreeRTOS Cortex-M3 port's priority-width assertion (`port.c:301`). The
 assertion compares the NVIC priority-register probe with `__NVIC_PRIO_BITS`,
 which is 4 for STM32F103. This failure was captured in the Serial Monitor.
 
-With `custom_wokwi_nvic_workaround = yes`, the build script generates a copy
-of the port under `.pio/` and masks the probe result to the device's four
-implemented most significant bits. The priority-width and priority-group
-assertions remain enabled. The installed framework source is unchanged;
-setting the option to `no` builds the original port for physical hardware.
-The adaptation does not change task priorities or interrupt-priority values.
+Masking the probe's lower four bits did not resolve the assertion. That
+approach has been removed. A prior investigation of this simulated board
+also reports missing NVIC priority, BASEPRI, SVC, and PendSV behavior.
+The Wokwi port uses Thread-mode calls and PRIMASK instead of those mechanisms.
+The kernel, task priorities, blocking delays, and mutex remain native FreeRTOS.
+The simulator port does not claim to validate hardware NVIC priority widths
+or demonstrate preemption. Its explicit checks cover task-mode switching,
+critical-section state, timer configuration, allocation, and stack overflow.
+
+Startup reports both byte and word NVIC probe readbacks for diagnosis,
+restores the register, and prints the selected Wokwi scheduler mode.
+The simulator port does not depend on these register probe values.
 
 Assertion messages include the expression and source location. Fault output
 uses bounded UART register polling without HAL tick timeouts or RTOS locks,
@@ -70,9 +86,10 @@ so an assertion can report its cause even with interrupts disabled.
 
 ## Simulator verification
 
-1. Build with `pio run -e bluepill_f103c8`.
+1. Build with `pio run` (default: `bluepill_wokwi`).
 2. Press F1 in VS Code and choose **Wokwi: Start Simulator**.
-3. Confirm the two startup lines followed by repeated diagnostic lines:
+3. Confirm the startup lines, probe values, scheduler-mode line, and repeated
+   diagnostic lines:
 
    ```text
    BCA182 FreeRTOS Multisensor
@@ -92,20 +109,23 @@ so an assertion can report its cause even with interrupts disabled.
 
 Checks completed on 2026-10-06:
 
-- `pio run -e bluepill_f103c8`: passed; 8,592 bytes RAM (including the
-  reserved 8 KiB kernel heap) and 8,320 bytes flash.
-- ELF symbols: SVC, PendSV, SysTick, the kernel tick handler, scheduler,
-  periodic delay, and failure hooks are linked as application/kernel code.
-- Firmware vector table: SVC, PendSV, and SysTick entries match the linked
-  handler addresses, including their Cortex-M Thumb bit.
-- `git diff --check`: passed.
+- `pio run -e bluepill_wokwi -e bluepill_f103c8`: both builds passed.
+- Wokwi build: 8,660 bytes RAM, 11,528 bytes flash.
+- Hardware build: 8,592 bytes RAM, 11,188 bytes flash.
+- Five compiled ARM instruction tests passed under Unicorn: task register
+  and stack restoration, nested critical-section state, existing interrupt
+  mask preservation, first-task startup, and recurring application output.
+- The integrated instruction test uses the real application, FreeRTOS
+  kernel, mutex, heap, task selection, delays, and TIM3 HAL update handler.
+  Both tasks print at ticks 0, 100, 200, and 300; HAL time reaches 3,000 ms.
+  UART and timer setup are stubbed. Timer update calls are injected in
+  Thread mode; this does not verify Wokwi's interrupt delivery, exception
+  return, WFI wakeup, or UART simulation.
 
-The corrected build passed with 8,592 bytes RAM and 10,908 bytes flash.
-Simulator observation confirmed the startup message and priority-width
-assertion on the original integration. Repeated task output with the
-compatibility correction is pending confirmation.
-The listed frequencies and ordering describe the configured design, not
-recorded runtime measurements.
+The Serial Monitor observations establish startup output and the repeated
+priority-width assertion for the earlier integration. Wokwi task output
+using the cooperative port is pending confirmation. No measured simulator
+task frequency is claimed yet.
 
 ## References
 
@@ -113,3 +133,4 @@ recorded runtime measurements.
 - [FreeRTOS task states](https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/01-Tasks-and-co-routines/02-Task-states).
 - Bundled FreeRTOS `task.h`, `semphr.h`, and `portable/GCC/ARM_CM3/port.c`
   in PlatformIO's STM32CubeF1 1.8.7 framework package.
+- [Prior STM32/Wokwi compatibility investigation](https://github.com/monxx-ie/BCA182-freetos-multisensor#running-freertos-in-wokwi-simulator-compatibility).

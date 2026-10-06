@@ -32,7 +32,7 @@ pio run
 
 ## Simulation (Wokwi)
 
-1. Build with `pio run -e bluepill_f103c8`.
+1. Build with `pio run` (default environment: `bluepill_wokwi`).
 2. Open this repository folder in VS Code with the Wokwi extension installed.
 3. Press **F1** and choose **Wokwi: Start Simulator**. If prompted, activate
    your Wokwi extension license.
@@ -57,18 +57,36 @@ and current verification status.
 
 ## FreeRTOS foundation
 
-The build uses STM32CubeF1's bundled FreeRTOS V10.3.1 kernel, GCC Cortex-M3
-port, and `heap_4` allocator. [The build script](scripts/freertos.py) compiles
-the required sources directly from the pinned PlatformIO framework package.
+The build uses STM32CubeF1's bundled FreeRTOS V10.3.1 kernel and `heap_4`
+allocator. [The build script](scripts/freertos.py) compiles the required
+sources directly from the pinned PlatformIO framework package.
 Native APIs are used throughout; no CMSIS-RTOS or Arduino wrapper is used.
 
-For Wokwi, `custom_wokwi_nvic_workaround = yes` adapts the kernel's NVIC
-priority-width probe to STM32F103's four implemented bits while retaining
-assertions. Set it to `no` to build the original port for physical hardware.
+- `bluepill_wokwi` uses a simulator port with cooperative Thread-mode
+  context switching and a 100 Hz TIM3 tick. Higher-priority ready tasks run
+  at the next yield or blocking call. This build cannot demonstrate interrupt
+  preemption. Each application task must perform bounded work and block.
+- `bluepill_f103c8` uses the unmodified GCC Cortex-M3 port with preemption
+  and a 1 kHz SysTick. Build it for physical hardware with
+  `pio run -e bluepill_f103c8`.
 
-HAL and FreeRTOS share a 1 kHz SysTick. SVC and PendSV are handled by the
-kernel's Cortex-M3 port. See [Part III scheduling notes](docs/part-iii-scheduling.md)
+The simulator's TIM3 tick advances HAL time by 10 ms and FreeRTOS time by
+one tick. See [Part III scheduling notes](docs/part-iii-scheduling.md)
 for task priorities, periods, states, and the simulator verification procedure.
+
+## Port verification
+
+`test/test_wokwi_context.py` executes the compiled ARM instructions under
+Unicorn. Its five tests cover task-register/stack preservation, nested
+critical sections, interrupt-mask restoration, first-task startup, and
+recurring Task A/B output using the real FreeRTOS kernel. Peripheral I/O and
+tick delivery are modeled; this is separate from Wokwi runtime verification.
+
+```sh
+python -m pip install --target .pio/verification-deps unicorn==2.1.4 pyelftools
+pio run -e bluepill_wokwi
+python -m unittest discover -s test -p test_wokwi_context.py -v
+```
 
 ## Step-by-step guide
 
@@ -85,3 +103,4 @@ framework and example; this project follows the STM32Cube requirement.
 - [Wokwi Blue Pill reference](https://docs.wokwi.com/parts/board-stm32-bluepill)
 - [Wokwi project configuration](https://docs.wokwi.com/vscode/project-config)
 - [Wokwi Serial Monitor wiring](https://docs.wokwi.com/guides/serial-monitor)
+- [Prior investigation of STM32/Wokwi FreeRTOS compatibility](https://github.com/monxx-ie/BCA182-freetos-multisensor#running-freertos-in-wokwi-simulator-compatibility)

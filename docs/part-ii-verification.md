@@ -16,7 +16,7 @@ startup message before sensors or FreeRTOS tasks are introduced.
 
 ## Verification procedure
 
-1. Run `pio run -e bluepill_f103c8`.
+1. Run `pio run` to build the environment selected by `wokwi.toml`.
 2. In VS Code, press F1 and select **Wokwi: Start Simulator**.
 3. Confirm there is only a Blue Pill in the circuit.
 4. Check for both lines, with no garbled characters:

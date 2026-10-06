@@ -3,10 +3,17 @@
 
 #include "stm32f1xx.h"
 
+#ifdef WOKWI_FREERTOS_PORT
+#define configUSE_PREEMPTION                     0
+#define configTICK_RATE_HZ                       100
+#define configUSE_IDLE_HOOK                      1
+#else
 #define configUSE_PREEMPTION                     1
+#define configTICK_RATE_HZ                       1000
+#define configUSE_IDLE_HOOK                      0
+#endif
 #define configUSE_TIME_SLICING                   1
 #define configCPU_CLOCK_HZ                       (SystemCoreClock)
-#define configTICK_RATE_HZ                       1000
 #define configMAX_PRIORITIES                     5
 #define configMINIMAL_STACK_SIZE                 128
 #define configTOTAL_HEAP_SIZE                    (8 * 1024)
@@ -20,7 +27,6 @@
 #define configUSE_RECURSIVE_MUTEXES               0
 #define configUSE_COUNTING_SEMAPHORES             0
 #define configUSE_TIMERS                         0
-#define configUSE_IDLE_HOOK                      0
 #define configUSE_TICK_HOOK                      0
 #define configCHECK_FOR_STACK_OVERFLOW           2
 #define configUSE_MALLOC_FAILED_HOOK             1
