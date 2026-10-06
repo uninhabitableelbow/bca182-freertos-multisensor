@@ -24,9 +24,14 @@ required checks pass, following the sequence in the activity handout.
 The declaration in `app.h` is compatible with both C and C++.
 FreeRTOS tick integration will be introduced in Part III.
 
+## Part II — Initial Wokwi simulation
+
+Build the firmware and follow [the Part II verification procedure](part-ii-verification.md).
+The circuit starts with the Blue Pill only and displays the required
+startup message. Use the commit message `Configure initial Wokwi simulation`.
+
 ## Upcoming milestones
 
-- Part II: Blue Pill Wokwi circuit and recognizable serial startup message.
 - Part III: two blocking FreeRTOS tasks and scheduling observations.
 - Sensor acquisition, OLED ownership, encoder navigation, and alarm output.
 - PIR motion and the ACTIVE/INACTIVE state machine.

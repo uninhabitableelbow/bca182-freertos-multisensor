@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "author": "uninhabitableelbow",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-stm32-bluepill",
+      "id": "bluepill",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    ["bluepill:A9", "$serialMonitor:RX", "green", []],
+    ["bluepill:A10", "$serialMonitor:TX", "blue", []]
+  ],
+  "serialMonitor": {
+    "display": "always",
+    "newline": "crlf"
+  }
+}
