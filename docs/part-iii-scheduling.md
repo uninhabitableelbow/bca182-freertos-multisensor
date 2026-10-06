@@ -77,9 +77,7 @@ The simulator port does not claim to validate hardware NVIC priority widths
 or demonstrate preemption. Its explicit checks cover task-mode switching,
 critical-section state, timer configuration, allocation, and stack overflow.
 
-Startup reports both byte and word NVIC probe readbacks for diagnosis,
-restores the register, and prints the selected Wokwi scheduler mode.
-The simulator port does not depend on these register probe values.
+Task output uses the exact diagnostic messages required by the laboratory.
 
 Assertion messages include the expression and source location. Fault output
 uses bounded UART register polling without HAL tick timeouts or RTOS locks,
@@ -89,7 +87,7 @@ so an assertion can report its cause even with interrupts disabled.
 
 1. Build with `pio run` (default: `bluepill_wokwi`).
 2. Press F1 in VS Code and choose **Wokwi: Start Simulator**.
-3. Confirm the startup lines, probe values, scheduler-mode line, and repeated
+3. Confirm the startup lines and repeated
    diagnostic lines:
 
    ```text
@@ -106,11 +104,9 @@ so an assertion can report its cause even with interrupts disabled.
    measure the duration spent in Ready or Blocked states.
 5. Stop and restart the simulator and confirm the same behavior.
 
-Messages include a tick counter and HAL-time stamp. Consecutive messages
-from the same task should differ by 25 ticks and 250 ms in the Wokwi build.
-Compare these stamps separately from wall-clock time and the simulator's
-displayed time. One pair of messages without later output indicates a
-stalled tick or scheduler, rather than establishing a slower frequency.
+The tasks retain a 250-ms blocked period using `vTaskDelayUntil()`. Output
+contains only `Task A running` and `Task B running`, without debug timestamps.
+Verify recurrence using simulated time; simulation checks are performed manually.
 
 ## Verification record
 
