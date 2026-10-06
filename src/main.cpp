@@ -2,6 +2,10 @@
 #include "stm32f1xx_hal_rcc.h"
 #include "stm32f1xx_hal_pwr.h"
 #include "app.h"
+#include "FreeRTOS.h"
+#include "task.h"
+
+extern "C" void xPortSysTickHandler(void);
 
 /**
  * @brief System Clock Configuration
@@ -63,9 +67,11 @@ int main(void) {
     return 0;
 }
 
-// HAL_Init enables SysTick; supply the handler instead of the startup
-// file's weak default so HAL timeouts and delays can advance.
-// FreeRTOS tick integration is introduced in Part III.
+// Both HAL and FreeRTOS use a 1 ms tick. Advance HAL even before scheduling;
+// forward to the kernel only once its task lists are ready.
 extern "C" void SysTick_Handler(void) {
     HAL_IncTick();
+    if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
+        xPortSysTickHandler();
+    }
 }

@@ -10,7 +10,8 @@ part, so the git history documents the evolution of the system:
 |-------|--------------------------------------------------|
 | I     | STM32Cube foundation, successful build |
 | II    | Wokwi configuration and HAL serial startup message |
-| III   | Next: two simple FreeRTOS tasks |
+| III   | Two periodic FreeRTOS diagnostic tasks with blocking delays |
+| IV    | Next: DHT22 and LDR sensor acquisition |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -40,15 +41,30 @@ pio run
    ```text
    BCA182 FreeRTOS Multisensor
    System starting...
+   Task A running
+   Task B running
    ```
 
 The Part II circuit contains only the Blue Pill. USART1 TX (PA9) connects
 to the Serial Monitor RX, and USART1 RX (PA10) connects to its TX.
 Serial uses 115200 baud, 8 data bits, no parity, and one stop bit.
-Sensors and FreeRTOS tasks are introduced in later milestones.
+The task messages repeat about once per second. Task A has priority 2,
+Task B priority 1; both use `vTaskDelayUntil()` between executions.
+A mutex protects their shared USART1 output. No sensors are connected yet.
 
 See [Part II verification](docs/part-ii-verification.md) for the checks
 and current verification status.
+
+## FreeRTOS foundation
+
+The build uses STM32CubeF1's bundled FreeRTOS V10.3.1 kernel, GCC Cortex-M3
+port, and `heap_4` allocator. [The build script](scripts/freertos.py) compiles
+the required sources directly from the pinned PlatformIO framework package.
+Native APIs are used throughout; no CMSIS-RTOS or Arduino wrapper is used.
+
+HAL and FreeRTOS share a 1 kHz SysTick. SVC and PendSV are handled by the
+kernel's Cortex-M3 port. See [Part III scheduling notes](docs/part-iii-scheduling.md)
+for task priorities, periods, states, and the simulator verification procedure.
 
 ## Step-by-step guide
 

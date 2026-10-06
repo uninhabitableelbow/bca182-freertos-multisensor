@@ -30,9 +30,14 @@ Build the firmware and follow [the Part II verification procedure](part-ii-verif
 The circuit starts with the Blue Pill only and displays the required
 startup message. Use the commit message `Configure initial Wokwi simulation`.
 
+## Part III — FreeRTOS foundation
+
+Create two tasks that print distinct messages and block between executions.
+See [scheduling notes](part-iii-scheduling.md) for the implemented priorities,
+periods, task states, and verification procedure.
+
 ## Upcoming milestones
 
-- Part III: two blocking FreeRTOS tasks and scheduling observations.
 - Sensor acquisition, OLED ownership, encoder navigation, and alarm output.
 - PIR motion and the ACTIVE/INACTIVE state machine.
 - Queue communication, shared-resource mutex, event signaling, and priorities.
