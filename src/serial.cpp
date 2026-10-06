@@ -56,3 +56,19 @@ HAL_StatusTypeDef serial_write(const char *message) {
         reinterpret_cast<uint8_t *>(const_cast<char *>(message)),
         static_cast<uint16_t>(length), transmit_timeout_ms);
 }
+
+void serial_write_fault(const char *message) {
+    if (message == nullptr || uart.Instance != USART1) {
+        return;
+    }
+    while (*message != '\0') {
+        uint32_t attempts = 100000;
+        while ((USART1->SR & USART_SR_TXE) == 0 && attempts > 0) {
+            --attempts;
+        }
+        if (attempts == 0) {
+            return;
+        }
+        USART1->DR = static_cast<uint8_t>(*message++);
+    }
+}

@@ -50,6 +50,24 @@ increments the HAL counter and calls the kernel tick handler after the
 scheduler starts. The port supplies SVC and PendSV for context switching.
 Tickless idle is disabled, so HAL's millisecond counter remains consistent.
 
+### Wokwi NVIC compatibility
+
+The first simulator run displayed the startup lines but stopped at the
+FreeRTOS Cortex-M3 port's priority-width assertion (`port.c:301`). The
+assertion compares the NVIC priority-register probe with `__NVIC_PRIO_BITS`,
+which is 4 for STM32F103. This failure was captured in the Serial Monitor.
+
+With `custom_wokwi_nvic_workaround = yes`, the build script generates a copy
+of the port under `.pio/` and masks the probe result to the device's four
+implemented most significant bits. The priority-width and priority-group
+assertions remain enabled. The installed framework source is unchanged;
+setting the option to `no` builds the original port for physical hardware.
+The adaptation does not change task priorities or interrupt-priority values.
+
+Assertion messages include the expression and source location. Fault output
+uses bounded UART register polling without HAL tick timeouts or RTOS locks,
+so an assertion can report its cause even with interrupts disabled.
+
 ## Simulator verification
 
 1. Build with `pio run -e bluepill_f103c8`.
@@ -82,8 +100,10 @@ Checks completed on 2026-10-06:
   handler addresses, including their Cortex-M Thumb bit.
 - `git diff --check`: passed.
 
-Simulator output is pending observation in VS Code; Part II's simulator
-confirmation is also pending.
+The corrected build passed with 8,592 bytes RAM and 10,908 bytes flash.
+Simulator observation confirmed the startup message and priority-width
+assertion on the original integration. Repeated task output with the
+compatibility correction is pending confirmation.
 The listed frequencies and ordering describe the configured design, not
 recorded runtime measurements.
 

@@ -6,5 +6,7 @@
 // USART1: PA9 TX, PA10 RX, 115200 baud, 8 data bits, no parity, 1 stop bit.
 HAL_StatusTypeDef serial_init(void);
 HAL_StatusTypeDef serial_write(const char *message);
+// Fault reporting without HAL tick timeouts, heap allocation, or RTOS locks.
+void serial_write_fault(const char *message);
 
 #endif

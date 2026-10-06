@@ -44,10 +44,33 @@ void task_b(void *) {
 } // namespace
 
 extern "C" void vApplicationMallocFailedHook(void) {
+    __disable_irq();
+    serial_write_fault("FreeRTOS heap allocation failed\r\n");
     fail_stop();
 }
 
 extern "C" void vApplicationStackOverflowHook(TaskHandle_t, char *) {
+    __disable_irq();
+    serial_write_fault("FreeRTOS task stack overflow\r\n");
+    fail_stop();
+}
+
+extern "C" void rtos_assert_failed(const char *condition, const char *file,
+                                    unsigned int line) {
+    __disable_irq();
+    serial_write_fault("FreeRTOS assertion failed: ");
+    serial_write_fault(condition);
+    serial_write_fault("\r\nLocation: ");
+    serial_write_fault(file);
+    serial_write_fault(":");
+    char digits[11] = {};
+    unsigned int position = sizeof(digits) - 1;
+    do {
+        digits[--position] = '0' + line % 10;
+        line /= 10;
+    } while (line != 0);
+    serial_write_fault(&digits[position]);
+    serial_write_fault("\r\n");
     fail_stop();
 }
 

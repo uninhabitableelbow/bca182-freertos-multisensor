@@ -43,10 +43,17 @@
 #define xPortPendSVHandler                       PendSV_Handler
 // SysTick is shared with HAL through the application ISR, not aliased.
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+void rtos_assert_failed(const char *condition, const char *file, unsigned int line);
+#ifdef __cplusplus
+}
+#endif
+
 #define configASSERT(condition) do { \
     if (!(condition)) { \
-        __disable_irq(); \
-        for (;;) { __NOP(); } \
+        rtos_assert_failed(#condition, __FILE__, __LINE__); \
     } \
 } while (0)
 

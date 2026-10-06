@@ -62,6 +62,10 @@ port, and `heap_4` allocator. [The build script](scripts/freertos.py) compiles
 the required sources directly from the pinned PlatformIO framework package.
 Native APIs are used throughout; no CMSIS-RTOS or Arduino wrapper is used.
 
+For Wokwi, `custom_wokwi_nvic_workaround = yes` adapts the kernel's NVIC
+priority-width probe to STM32F103's four implemented bits while retaining
+assertions. Set it to `no` to build the original port for physical hardware.
+
 HAL and FreeRTOS share a 1 kHz SysTick. SVC and PendSV are handled by the
 kernel's Cortex-M3 port. See [Part III scheduling notes](docs/part-iii-scheduling.md)
 for task priorities, periods, states, and the simulator verification procedure.
