@@ -15,6 +15,11 @@ extern "C" void xPortSysTickHandler(void);
  *        Required by the STM32F103 HAL before any peripheral is used.
  */
 void SystemClock_Config(void) {
+#ifdef WOKWI_FREERTOS_PORT
+    // SystemInit leaves HSI running at 8 MHz. Keep that clock for Wokwi
+    // to reduce simulated CPU work; HAL_Init already set its 1 ms tick.
+    SystemCoreClockUpdate();
+#else
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
@@ -44,6 +49,7 @@ void SystemClock_Config(void) {
     if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
         while (1) { }
     }
+#endif
 }
 
 /**
@@ -58,7 +64,7 @@ int main(void) {
         while (1) { }
     }
 
-    // Configure the system clock to 72 MHz
+    // Select 8 MHz HSI for simulation or 72 MHz HSE/PLL for hardware.
     SystemClock_Config();
 
     // Start the application

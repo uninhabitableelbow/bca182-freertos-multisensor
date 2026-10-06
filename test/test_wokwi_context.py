@@ -122,7 +122,7 @@ class ContextSwitchTests(unittest.TestCase):
         # An Idle call injects TIM3's update handler; no hardware exception or
         # fake task-selection hook is involved in this test.
         self.cpu.mem_map(0x40000000, 0x30000)
-        self.write_word(0x40021004, 0x400)  # APB1 clock divider of two.
+        self.write_word(0x40021004, 0)  # Simulation uses undivided 8 MHz HSI.
         self.cpu.reg_write(UC_ARM_REG_CONTROL, 0)
         self.cpu.reg_write(UC_ARM_REG_PRIMASK, 0)
         self.cpu.reg_write(UC_ARM_REG_LR, self.return_a | 1)
@@ -159,7 +159,7 @@ class ContextSwitchTests(unittest.TestCase):
             elif address == (self.symbols["_Z18serial_write_faultPKc"] & ~1):
                 return_from_call(cpu)
             elif address == (self.symbols["HAL_RCC_GetPCLK1Freq"] & ~1):
-                return_from_call(cpu, 36000000)
+                return_from_call(cpu, 8000000)
             elif address in [(self.symbols[name] & ~1) for name in ["HAL_TIM_Base_Init", "HAL_TIM_Base_Start_IT"]]:
                 return_from_call(cpu)
             elif address == (self.symbols["vApplicationIdleHook"] & ~1):
@@ -180,9 +180,9 @@ class ContextSwitchTests(unittest.TestCase):
         self.cpu.hook_del(hook)
         diagnostics = [(t, m) for t, m in messages if "Task" in m]
         self.assertEqual([m for _, m in diagnostics], ["Task A running\r\n", "Task B running\r\n"] * 4)
-        self.assertEqual([t for t, m in diagnostics if "Task A" in m], [0, 100, 200, 300])
-        self.assertEqual([t for t, m in diagnostics if "Task B" in m], [0, 100, 200, 300])
-        self.assertEqual(self.read_word(self.symbols["uwTick"]), 3000)
+        self.assertEqual([t for t, m in diagnostics if "Task A" in m], [0, 25, 50, 75])
+        self.assertEqual([t for t, m in diagnostics if "Task B" in m], [0, 25, 50, 75])
+        self.assertEqual(self.read_word(self.symbols["uwTick"]), 750)
 
 
 if __name__ == "__main__":

@@ -48,7 +48,7 @@ pio run
 The Part II circuit contains only the Blue Pill. USART1 TX (PA9) connects
 to the Serial Monitor RX, and USART1 RX (PA10) connects to its TX.
 Serial uses 115200 baud, 8 data bits, no parity, and one stop bit.
-The task messages repeat about once per second. Task A has priority 2,
+The task messages repeat every 250 simulated milliseconds (about 4 Hz). Task A has priority 2,
 Task B priority 1; both use `vTaskDelayUntil()` between executions.
 A mutex protects their shared USART1 output. No sensors are connected yet.
 
@@ -63,7 +63,8 @@ sources directly from the pinned PlatformIO framework package.
 Native APIs are used throughout; no CMSIS-RTOS or Arduino wrapper is used.
 
 - `bluepill_wokwi` uses a simulator port with cooperative Thread-mode
-  context switching and a 100 Hz TIM3 tick. Higher-priority ready tasks run
+  switching at an 8 MHz HSI CPU clock to reduce simulator workload,
+  and a 100 Hz TIM3 tick. Higher-priority ready tasks run
   at the next yield or blocking call. This build cannot demonstrate interrupt
   preemption. Each application task must perform bounded work and block.
 - `bluepill_f103c8` uses the unmodified GCC Cortex-M3 port with preemption

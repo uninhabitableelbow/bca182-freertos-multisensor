@@ -8,7 +8,7 @@
 namespace {
 SemaphoreHandle_t serial_mutex = nullptr;
 constexpr uint16_t task_stack_words = 256; // 1 KiB per task on Cortex-M3.
-constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(1000);
+constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(250);
 
 [[noreturn]] void fail_stop() {
     __disable_irq();

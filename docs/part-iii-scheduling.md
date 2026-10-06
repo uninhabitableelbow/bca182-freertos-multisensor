@@ -7,8 +7,8 @@ Both perform finite work and block between executions.
 
 | Task | Responsibility | Priority | Period | Stack | Typical blocked condition |
 | --- | --- | --- | --- | --- | --- |
-| TaskA | Print `Task A running` | 2 | 1,000 ms (~1 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
-| TaskB | Print `Task B running` | 1 | 1,000 ms (~1 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
+| TaskA | Print `Task A running` | 2 | 250 ms (~4 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
+| TaskB | Print `Task B running` | 1 | 250 ms (~4 Hz) | 256 words / 1 KiB | `vTaskDelayUntil()` or serial mutex |
 | Idle | Kernel housekeeping | 0 | When no application task is ready | 128 words / 512 bytes | Normally ready |
 
 Task A has the higher priority to make priority selection observable:
@@ -22,7 +22,7 @@ the next release relative to that time, limiting drift caused by execution
 time. In contrast, `vTaskDelay()` waits relative to when it is called, adding
 the work duration to each cycle. If a task overruns its period, an already
 expired release does not block; neither diagnostic should overrun its
-1-second period during normal operation.
+250-ms period during normal operation.
 
 ## Task states in this implementation
 
@@ -48,7 +48,8 @@ The project compiles STM32CubeF1's unchanged FreeRTOS V10.3.1 kernel using
 assertions, allocation failures, and stack overflows enter a fail-stop loop.
 
 The default `bluepill_wokwi` environment uses `ports/wokwi`: cooperative
-Thread-mode switching with a 100 Hz TIM3 tick. Task context uses PSP while
+switching with an 8 MHz HSI CPU clock to reduce simulator workload.
+The 100 Hz TIM3 tick is derived from that clock. Task context uses PSP while
 interrupts use MSP. Each task's 48-byte context frame preserves r4–r11,
 the return address, critical-section nesting, PRIMASK, and the mask saved
 by the outermost critical-section entry. PRIMASK protects critical sections.
@@ -100,8 +101,8 @@ so an assertion can report its cause even with interrupts disabled.
    Task B running
    ```
 
-4. Observe output for at least 10 seconds; count approximately one line per
-   second from each task. Serial text indicates execution; it does not directly
+4. Observe output for at least 3 simulated seconds; count approximately four
+   lines per simulated second from each task. Serial text indicates execution; it does not directly
    measure the duration spent in Ready or Blocked states.
 5. Stop and restart the simulator and confirm the same behavior.
 
@@ -117,7 +118,7 @@ Checks completed on 2026-10-06:
   mask preservation, first-task startup, and recurring application output.
 - The integrated instruction test uses the real application, FreeRTOS
   kernel, mutex, heap, task selection, delays, and TIM3 HAL update handler.
-  Both tasks print at ticks 0, 100, 200, and 300; HAL time reaches 3,000 ms.
+  Both tasks print at ticks 0, 25, 50, and 75; HAL time reaches 750 ms.
   UART and timer setup are stubbed. Timer update calls are injected in
   Thread mode; this does not verify Wokwi's interrupt delivery, exception
   return, WFI wakeup, or UART simulation.
