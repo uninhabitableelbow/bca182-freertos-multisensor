@@ -135,6 +135,8 @@ void display_task(void *) {
                     oled_line(2, "Temperature") && oled_line(4, "Waiting...");
             if (!ready) {
                 print_diagnostic("OLED: initialization failed; retrying\r\n");
+                print_diagnostic(oled_error());
+                print_diagnostic("\r\n");
                 vTaskDelay(pdMS_TO_TICKS(2000));
                 continue;
             }
@@ -156,6 +158,8 @@ void display_task(void *) {
         }
         if (!ready) {
             print_diagnostic("OLED: write failed; retrying\r\n");
+            print_diagnostic(oled_error());
+            print_diagnostic("\r\n");
             vTaskDelay(pdMS_TO_TICKS(2000));
         }
     }

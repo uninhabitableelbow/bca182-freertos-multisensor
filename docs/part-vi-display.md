@@ -29,7 +29,10 @@ with address 0x3c. The driver uses STM32Cube HAL I2C at 100 kHz, bounded
 30-ms transmit timeouts, and the controller's page addressing mode.
 Commands follow the [SSD1306 datasheet](https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf).
 It uses a small glyph set for the initial screen and a single 129-byte row
-transfer buffer, clearing each updated row to remove old digits.
+buffer, clearing each updated row to remove old digits. Row data is sent in
+16-byte chunks. Initialization explicitly selects PB6/PB7, checks for an
+acknowledgement at 0x3c, and resets HAL software state before retries.
+Failures report the operation and I2C diagnostics.
 
 ## Ownership and scheduling
 
@@ -64,3 +67,13 @@ The Wokwi build uses 11,060 bytes of static RAM (including the RTOS heap)
 and 20,060 bytes of flash. These checks do not establish runtime behavior.
 
 Milestone: `Implement OLED display task`.
+
+## Recorded user verification - 2026-10-08
+
+The user's Wokwi screenshot shows `ROOM MONITOR`, `Temperature`, and
+`25.4 C`, matching serial output of `25.40 C`. Sensor sample numbers advance
+with zero dropped samples while Task A/B continue. The user also confirmed
+that changing DHT22 temperature updates the OLED to match the terminal.
+Negative-value rendering and disconnect recovery have not been confirmed.
+The updated Wokwi firmware compiled successfully; its reported sizes are
+11,176 bytes RAM and 21,072 bytes flash.

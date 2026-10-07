@@ -2,11 +2,15 @@
 #include "stm32f1xx_hal.h"
 #include "stm32f1xx_hal_i2c.h"
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 
 namespace {
 I2C_HandleTypeDef bus = {};
 constexpr uint16_t address = 0x3c << 1;
 constexpr uint32_t timeout_ms = 30;
+char error_text[112] = "none";
+const char *stage = "initialization";
 
 // Compact 5-column, 7-pixel glyphs for the initial temperature screen.
 struct Glyph { char character; uint8_t columns[5]; };
@@ -31,13 +35,23 @@ constexpr Glyph font[] = {
 };
 
 bool send(uint8_t *bytes, uint16_t size) {
-    return HAL_I2C_Master_Transmit(&bus, address, bytes, size, timeout_ms) == HAL_OK;
+    const HAL_StatusTypeDef result = HAL_I2C_Master_Transmit(&bus, address, bytes, size, timeout_ms);
+    if (result == HAL_OK) { return true; }
+    std::snprintf(error_text, sizeof(error_text),
+        "%s: status=%u error=0x%lX remaining=%u SR1=0x%lX SR2=0x%lX",
+        stage, static_cast<unsigned>(result), static_cast<unsigned long>(bus.ErrorCode),
+        static_cast<unsigned>(bus.XferCount), static_cast<unsigned long>(bus.Instance->SR1),
+        static_cast<unsigned long>(bus.Instance->SR2));
+    return false;
 }
 }
+
+const char *oled_error() { return error_text; }
 
 bool oled_line(unsigned page, const char *text) {
     if (page >= 8 || text == nullptr) { return false; }
     uint8_t position[] = {0x00, static_cast<uint8_t>(0xb0 | page), 0x00, 0x10};
+    stage = "row address";
     if (!send(position, sizeof(position))) { return false; }
     uint8_t pixels[129] = {0x40};
     unsigned column = 0;
@@ -51,14 +65,26 @@ bool oled_line(unsigned page, const char *text) {
         ++text;
     }
     // Clear the entire row so shorter values do not leave old digits behind.
-    return send(pixels, sizeof(pixels));
+    // Keep each transfer short: the HAL timeout covers the entire transfer.
+    stage = "row pixels";
+    for (unsigned offset = 0; offset < 128; offset += 16) {
+        uint8_t chunk[17] = {0x40};
+        std::memcpy(chunk + 1, pixels + 1 + offset, 16);
+        if (!send(chunk, sizeof(chunk))) { return false; }
+    }
+    return true;
 }
 
 bool oled_init() {
+    __HAL_RCC_AFIO_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
+    // Match diagram.json explicitly: I2C1 default pins PB6/PB7, not PB8/PB9.
+    __HAL_AFIO_REMAP_I2C1_DISABLE();
     __HAL_RCC_I2C1_CLK_ENABLE();
     __HAL_RCC_I2C1_FORCE_RESET();
     __HAL_RCC_I2C1_RELEASE_RESET();
+    // Reset software state too: an aborted transfer may retain HAL's lock/state.
+    bus = {};
     GPIO_InitTypeDef gpio = {};
     gpio.Pin = GPIO_PIN_6 | GPIO_PIN_7;
     gpio.Mode = GPIO_MODE_AF_OD;
@@ -72,16 +98,28 @@ bool oled_init() {
     bus.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
     bus.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
     bus.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-    if (HAL_I2C_Init(&bus) != HAL_OK) { return false; }
+    if (HAL_I2C_Init(&bus) != HAL_OK) {
+        std::snprintf(error_text, sizeof(error_text), "HAL I2C initialization failed");
+        return false;
+    }
+    if (HAL_I2C_IsDeviceReady(&bus, address, 2, timeout_ms) != HAL_OK) {
+        std::snprintf(error_text, sizeof(error_text),
+            "No OLED ACK at 0x3C on PB6/PB7; check loaded circuit. MAPR=0x%lX GPIOB=0x%lX",
+            static_cast<unsigned long>(AFIO->MAPR),
+            static_cast<unsigned long>(GPIOB->IDR));
+        return false;
+    }
     uint8_t setup[] = {
         0x00, 0xae, 0xd5, 0x80, 0xa8, 0x3f, 0xd3, 0x00, 0x40,
         0x8d, 0x14, 0x20, 0x02, 0xa1, 0xc8, 0xda, 0x12,
         0x81, 0x7f, 0xd9, 0xf1, 0xdb, 0x40, 0xa4, 0xa6, 0x2e
     };
+    stage = "setup commands";
     if (!send(setup, sizeof(setup))) { return false; }
     for (unsigned page = 0; page < 8; ++page) {
         if (!oled_line(page, "")) { return false; }
     }
     uint8_t enable[] = {0x00, 0xaf};
+    stage = "display enable";
     return send(enable, sizeof(enable));
 }
