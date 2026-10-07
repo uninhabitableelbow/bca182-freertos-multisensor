@@ -14,6 +14,7 @@ milestones, so the git history documents the evolution of the system:
 | IV    | DHT22 and LDR acquisition in a 2-second SensorTask |
 | V     | SensorData messages sent through a FreeRTOS queue to SensorLogTask |
 | VI    | DisplayTask owns the OLED and shows queued temperature readings |
+| VII   | Rotary encoder navigation with Wokwi polling; user confirmed the rapid-turn fix |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -62,6 +63,8 @@ for message validity, queue behavior, and verification steps.
 DisplayTask receives a separate latest-sample queue and owns the SSD1306 OLED
 on PB6/PB7. See [Part VI display notes](docs/part-vi-display.md) for wiring
 and the user-run OLED checks.
+See [Part VII navigation](docs/part-vii-navigation.md) for the encoder and
+the clockwise/counterclockwise verification checklist.
 
 See [Part II verification](docs/part-ii-verification.md) for the checks
 and current verification status.

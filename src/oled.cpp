@@ -11,10 +11,19 @@ constexpr uint16_t address = 0x3c << 1;
 constexpr uint32_t timeout_ms = 30;
 char error_text[112] = "none";
 const char *stage = "initialization";
+// DisplayTask owns both the hardware and this cache.
+uint8_t displayed[8][128] = {};
+bool page_valid[8] = {};
 
 // Compact 5-column, 7-pixel glyphs for the initial temperature screen.
 struct Glyph { char character; uint8_t columns[5]; };
 constexpr Glyph font[] = {
+    {'%', {35,19,8,100,98}}, {'H', {127,8,8,8,127}},
+    {'L', {127,64,64,64,64}}, {'D', {127,65,65,34,28}},
+    {'b', {127,72,68,68,56}}, {'c', {56,68,68,68,32}},
+    {'d', {56,68,68,72,127}}, {'h', {127,8,4,4,120}},
+    {'l', {0,65,127,64,0}}, {'v', {28,32,64,32,28}},
+    {'y', {12,80,80,80,60}},
     {' ', {0,0,0,0,0}}, {'-', {8,8,8,8,8}}, {'.', {0,96,96,0,0}},
     {'0', {62,81,73,69,62}}, {'1', {0,66,127,64,0}},
     {'2', {66,97,81,73,70}}, {'3', {33,65,69,75,49}},
@@ -50,32 +59,47 @@ const char *oled_error() { return error_text; }
 
 bool oled_line(unsigned page, const char *text) {
     if (page >= 8 || text == nullptr) { return false; }
-    uint8_t position[] = {0x00, static_cast<uint8_t>(0xb0 | page), 0x00, 0x10};
-    stage = "row address";
-    if (!send(position, sizeof(position))) { return false; }
     uint8_t pixels[129] = {0x40};
     unsigned column = 0;
     while (*text && column + 6 <= 128) {
-        const Glyph *selected = &font[0];
+        const Glyph *selected = nullptr;
         for (const auto &glyph : font) {
             if (glyph.character == *text) { selected = &glyph; break; }
         }
-        for (unsigned i = 0; i < 5; ++i) { pixels[1 + column + i] = selected->columns[i]; }
+        if (selected != nullptr) {
+            for (unsigned i = 0; i < 5; ++i) { pixels[1 + column + i] = selected->columns[i]; }
+        }
         column += 6;
         ++text;
     }
-    // Clear the entire row so shorter values do not leave old digits behind.
-    // Keep each transfer short: the HAL timeout covers the entire transfer.
-    stage = "row pixels";
-    for (unsigned offset = 0; offset < 128; offset += 16) {
-        uint8_t chunk[17] = {0x40};
-        std::memcpy(chunk + 1, pixels + 1 + offset, 16);
-        if (!send(chunk, sizeof(chunk))) { return false; }
+    unsigned first = 0;
+    unsigned end = 128;
+    if (page_valid[page]) {
+        while (first < end && displayed[page][first] == pixels[first + 1]) { ++first; }
+        if (first == end) { return true; }
+        while (end > first && displayed[page][end - 1] == pixels[end]) { --end; }
     }
+    uint8_t position[] = {0x00, static_cast<uint8_t>(0xb0 | page),
+        static_cast<uint8_t>(first & 15), static_cast<uint8_t>(0x10 | (first >> 4))};
+    // On any partial failure, the next attempt must resend the complete row.
+    page_valid[page] = false;
+    stage = "row address";
+    if (!send(position, sizeof(position))) { return false; }
+    // Include newly blank pixels so shorter values still erase old digits.
+    stage = "row pixels";
+    for (unsigned offset = first; offset < end; offset += 16) {
+        const unsigned count = end - offset < 16 ? end - offset : 16;
+        uint8_t chunk[17] = {0x40};
+        std::memcpy(chunk + 1, pixels + 1 + offset, count);
+        if (!send(chunk, static_cast<uint16_t>(count + 1))) { return false; }
+    }
+    std::memcpy(displayed[page], pixels + 1, 128);
+    page_valid[page] = true;
     return true;
 }
 
 bool oled_init() {
+    std::memset(page_valid, 0, sizeof(page_valid));
     __HAL_RCC_AFIO_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     // Match diagram.json explicitly: I2C1 default pins PB6/PB7, not PB8/PB9.

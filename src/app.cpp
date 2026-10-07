@@ -10,12 +10,15 @@
 #include "sensor_values.h"
 #include "sensor_data.h"
 #include "oled.h"
+#include "encoder.h"
+#include "navigation.h"
 #include <cstdio>
 
 namespace {
 SemaphoreHandle_t serial_mutex = nullptr;
 QueueHandle_t sensor_queue = nullptr;
 QueueHandle_t display_queue = nullptr;
+QueueHandle_t mode_queue = nullptr;
 constexpr UBaseType_t sensor_queue_length = 4;
 constexpr uint16_t task_stack_words = 256; // 1 KiB per task on Cortex-M3.
 constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(1000);
@@ -126,10 +129,47 @@ void sensor_log_task(void *) {
         }
     }
 }
+void input_task(void *) {
+    encoder_init();
+    uint32_t previous = 0;
+    uint32_t last_irq_count = 0;
+    TickType_t last_report = xTaskGetTickCount();
+    DisplayMode mode = DisplayMode::TEMPERATURE;
+    for (;;) {
+        const uint32_t position = encoder_position();
+        const TickType_t now = xTaskGetTickCount();
+        if (now - last_report >= pdMS_TO_TICKS(1000)) {
+            const uint32_t count = encoder_interrupt_count();
+            if (count != last_irq_count) {
+                char line[96];
+                std::snprintf(line, sizeof(line), "Encoder: %lu IRQs in %lu ms, position=%lu\r\n",
+                    static_cast<unsigned long>(count - last_irq_count),
+                    static_cast<unsigned long>((now - last_report) * portTICK_PERIOD_MS),
+                    static_cast<unsigned long>(position));
+                print_diagnostic(line);
+            }
+            last_irq_count = count;
+            last_report = now;
+        }
+        if (position != previous) {
+            // Unsigned subtraction preserves wraparound; four steps return home.
+            const unsigned steps = (position - previous) & 3U;
+            for (unsigned i = 0; i < steps; ++i) { mode = navigate(mode, true); }
+            previous = position;
+            if (xQueueOverwrite(mode_queue, &mode) != pdPASS) { fail_stop(); }
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
 void display_task(void *) {
     vTaskDelay(pdMS_TO_TICKS(100)); // OLED power-on settling time.
     bool ready = false;
+    SensorMessage message = {};
+    bool have_sample = false;
+    DisplayMode mode = DisplayMode::TEMPERATURE;
     for (;;) {
+        bool dirty = false;
         if (!ready) {
             ready = oled_init() && oled_line(0, "ROOM MONITOR") &&
                     oled_line(2, "Temperature") && oled_line(4, "Waiting...");
@@ -140,11 +180,31 @@ void display_task(void *) {
                 vTaskDelay(pdMS_TO_TICKS(2000));
                 continue;
             }
+            dirty = true;
         }
-        SensorMessage message = {};
-        if (xQueueReceive(display_queue, &message, portMAX_DELAY) != pdPASS) { fail_stop(); }
+        if (xQueueReceive(display_queue, &message, 0) == pdPASS) {
+            have_sample = true;
+            dirty = true;
+        }
+        if (xQueueReceive(mode_queue, &mode, 0) == pdPASS) { dirty = true; }
+        if (!dirty) { vTaskDelay(pdMS_TO_TICKS(20)); continue; }
+        const char *labels[] = {"Temperature", "Humidity", "Light", "Motion"};
+        ready = oled_line(2, labels[static_cast<unsigned>(mode)]);
         char value[24];
-        if (message.dht_status == Dht22Status::ok) {
+        if (!have_sample) {
+            std::snprintf(value, sizeof(value), "Waiting...");
+        } else if (mode == DisplayMode::MOTION) {
+            std::snprintf(value, sizeof(value), "%s", !message.motion_valid ? "Not available" :
+                (message.values.motionDetected ? "Detected" : "None"));
+        } else if (mode == DisplayMode::LIGHT) {
+            if (message.light_valid) { std::snprintf(value, sizeof(value), "%d %%", message.values.lightLevel); }
+            else { std::snprintf(value, sizeof(value), "Error"); }
+        } else if (message.dht_status != Dht22Status::ok) {
+            std::snprintf(value, sizeof(value), "Error");
+        } else if (mode == DisplayMode::HUMIDITY) {
+            const unsigned tenths = static_cast<unsigned>(message.values.humidity * 10.0f + 0.5f);
+            std::snprintf(value, sizeof(value), "%u.%u %%", tenths / 10, tenths % 10);
+        } else {
             const float temperature = message.values.temperature;
             const int tenths = static_cast<int>(temperature * 10.0f +
                                                (temperature < 0 ? -0.5f : 0.5f));
@@ -152,16 +212,15 @@ void display_task(void *) {
             const int length = std::snprintf(value, sizeof(value), "%s%d.%d C",
                 tenths < 0 ? "-" : "", magnitude / 10, magnitude % 10);
             if (length < 0 || static_cast<size_t>(length) >= sizeof(value)) { fail_stop(); }
-            ready = oled_line(4, value);
-        } else {
-            ready = oled_line(4, "Error");
         }
+        ready = ready && oled_line(4, value);
         if (!ready) {
             print_diagnostic("OLED: write failed; retrying\r\n");
             print_diagnostic(oled_error());
             print_diagnostic("\r\n");
             vTaskDelay(pdMS_TO_TICKS(2000));
         }
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 } // namespace
@@ -223,7 +282,8 @@ extern "C" void app_main(void) {
     }
     sensor_queue = xQueueCreate(sensor_queue_length, sizeof(SensorMessage));
     display_queue = xQueueCreate(1, sizeof(SensorMessage));
-    if (sensor_queue == nullptr || display_queue == nullptr) {
+    mode_queue = xQueueCreate(1, sizeof(DisplayMode));
+    if (sensor_queue == nullptr || display_queue == nullptr || mode_queue == nullptr) {
         serial_write_fault("Sensor queue allocation failed\r\n");
         fail_stop();
     }
@@ -240,6 +300,7 @@ extern "C" void app_main(void) {
     if (xTaskCreate(sensor_task, "SensorTask", 384, nullptr, 3, nullptr) != pdPASS ||
         xTaskCreate(sensor_log_task, "SensorLogTask", 384, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(display_task, "DisplayTask", 384, nullptr, 1, nullptr) != pdPASS ||
+        xTaskCreate(input_task, "InputTask", 256, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(task_a, "TaskA", task_stack_words, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(task_b, "TaskB", task_stack_words, nullptr, 1, nullptr) != pdPASS) {
         fail_stop();

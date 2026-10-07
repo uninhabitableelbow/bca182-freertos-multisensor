@@ -34,12 +34,15 @@ static TIM_HandleTypeDef tick_timer;
 static BaseType_t timer_running;
 static uint16_t last_timer_count;
 static uint32_t last_kernel_ms;
+/* Bounded GPIO sampling, with no RTOS calls or encoder IRQs in Wokwi. */
+extern void encoder_poll(void);
 
 /* HAL time must progress even while UART polling has not yielded. Keeping
  * this separate from the kernel tick also avoids changing task lists inside
  * driver calls. Sample at least once per 65.536 seconds (TIM3's wrap period).
  */
 uint32_t HAL_GetTick(void) {
+    encoder_poll();
     const uint32_t previous_mask = ulPortSaveInterruptMask();
     if (timer_running != pdFALSE) {
         const uint16_t count = (uint16_t)__HAL_TIM_GET_COUNTER(&tick_timer);

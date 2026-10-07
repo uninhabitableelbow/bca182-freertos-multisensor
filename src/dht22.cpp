@@ -1,5 +1,6 @@
 #include "dht22.h"
 #include "sensor_values.h"
+#include "encoder.h"
 #include "stm32f1xx_hal.h"
 #include "stm32f1xx_hal_tim.h"
 
@@ -18,7 +19,13 @@ void data_pin_mode(uint32_t mode) {
     HAL_GPIO_Init(GPIOA, &gpio);
 }
 
-uint16_t micros16() { return static_cast<uint16_t>(__HAL_TIM_GET_COUNTER(&timer)); }
+uint16_t micros16() {
+#ifdef WOKWI_FREERTOS_PORT
+    // Preserve encoder sampling during the bounded DHT pulse loops as well.
+    encoder_poll();
+#endif
+    return static_cast<uint16_t>(__HAL_TIM_GET_COUNTER(&timer));
+}
 bool delay_us(uint16_t interval) {
     const uint16_t start = micros16();
     // Iteration cap also bounds failure if the timer clock stops.
