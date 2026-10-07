@@ -36,6 +36,13 @@ Create two tasks that print distinct messages and block between executions.
 See [scheduling notes](part-iii-scheduling.md) for the implemented priorities,
 periods, task states, and verification procedure.
 
+## Part IV - Sensor subsystem
+
+See [sensor notes](part-iv-sensors.md) for DHT22 and LDR wiring, the 2-second
+SensorTask, periodic timing, and the manual verification procedure. The
+implementation milestones are `Implement DHT22 sensor acquisition` and
+`Add LDR measurement`. Wokwi verification remains a user-run check.
+
 ## Upcoming milestones
 
 - Sensor acquisition, OLED ownership, encoder navigation, and alarm output.

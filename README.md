@@ -11,7 +11,7 @@ milestones, so the git history documents the evolution of the system:
 | I     | STM32Cube foundation, successful build |
 | II    | Wokwi configuration and HAL serial startup message |
 | III   | Two periodic FreeRTOS diagnostic tasks with blocking delays |
-| IV    | DHT22 acquisition in a 2-second SensorTask; LDR next |
+| IV    | DHT22 and LDR acquisition in a 2-second SensorTask |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -45,13 +45,14 @@ pio run
    Task B running
    ```
 
-The circuit now includes a DHT22 on PA1 with a 4.7k pull-up. USART1 TX (PA9) connects
+The circuit includes a DHT22 on PA1 with a 4.7k pull-up and an LDR module
+on PA0 (ADC1 channel 0). Both sensors use 3.3 V and common ground. USART1 TX (PA9) connects
 to the Serial Monitor RX, and USART1 RX (PA10) connects to its TX.
 Serial uses 115200 baud, 8 data bits, no parity, and one stop bit.
 The distinct task messages repeat every 1000 firmware milliseconds (1 Hz each). These are simulated-time intervals;
 slow simulation can make them take longer in wall-clock time. Task A has priority 2,
 Task B priority 1; both use `vTaskDelayUntil()` between executions.
-A mutex protects their shared USART1 output. SensorTask (priority 3) reads the DHT22 every 2 seconds after startup stabilization.
+A mutex protects their shared USART1 output. SensorTask (priority 3) reads temperature, humidity, and relative light every 2 seconds after startup stabilization.
 See [Part IV sensor notes](docs/part-iv-sensors.md) for wiring and manual checks.
 
 See [Part II verification](docs/part-ii-verification.md) for the checks

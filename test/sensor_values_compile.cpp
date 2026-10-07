@@ -12,3 +12,7 @@ static_assert(dht22_checksum_ok(negative), "Negative frame checksum");
 static_assert(dht22_temperature(negative) == -54, "DHT22 uses sign-magnitude");
 static_assert(!dht22_checksum_ok(corrupt), "Corrupted data rejected");
 static_assert(!dht22_range_ok(excess_humidity), "Humidity cannot exceed 100 percent");
+static_assert(ldr_percent(0) == 100, "Low ADC is bright");
+static_assert(ldr_percent(4095) == 0, "Full ADC is dark");
+static_assert(ldr_percent(2048) == 50, "Midscale rounds to 50 percent");
+static_assert(ldr_percent(65535) == 0, "Out-of-range input cannot underflow");

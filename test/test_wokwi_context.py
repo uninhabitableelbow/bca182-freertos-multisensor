@@ -172,6 +172,10 @@ class ContextSwitchTests(unittest.TestCase):
                 self.fail("Kernel assertion: " + read_string(cpu.reg_read(UC_ARM_REG_R0)))
             if address == (self.symbols["dht22_init"] & ~1):
                 return_from_call(cpu, 1)
+            elif address == (self.symbols["ldr_init"] & ~1):
+                return_from_call(cpu, 1)
+            elif address == (self.symbols["ldr_read"] & ~1):
+                return_from_call(cpu, 0)  # No ADC hardware in this port test.
             elif address == (self.symbols["dht22_read"] & ~1):
                 return_from_call(cpu, 1)  # Sensor not ready; hardware tested manually.
             elif address == (self.symbols["_Z11serial_initv"] & ~1):

@@ -36,6 +36,31 @@ higher-priority work or long interrupt handlers would require revisiting
 the timing-sensitive driver. Native hardware uses the normal preemptive
 port; Wokwi uses the documented cooperative port.
 
+## LDR acquisition (step 21)
+
+The photoresistor module's AO pin connects to PA0 / ADC1 channel 0; VCC
+connects to 3.3 V and GND to common ground. DO is unused. ADC1 takes one
+right-aligned 12-bit conversion per SensorTask cycle. Its clock is PCLK2/6
+(12 MHz on the physical board); a long sample time suits the resistor divider.
+Conversion polling has a 5-ms timeout, and failure prints an error without
+presenting a fabricated light value. A DHT22 failure does not skip the LDR read.
+
+For this module, darkness increases the analog voltage. Relative light is:
+
+```text
+light_percent = round(100 * (4095 - raw_adc) / 4095)
+```
+
+Thus raw 0 maps to 100%, raw 4095 to 0%, and midscale to about 50%.
+This is an inverted, normalized ADC scale, not a calibrated lux measurement
+or a linear percentage of physical illumination. Serial output includes the
+raw value so the conversion can be checked independently.
+
+Physical hardware performs ADC calibration at initialization. The Wokwi
+environment uses basic ADC1 conversions without the calibration operation,
+consistent with its documented limited ADC support. Hardware behavior and
+simulator behavior must be verified separately.
+
 ## Manual verification
 
 Stop Wokwi, run `pio run -e bluepill_wokwi`, wait for SUCCESS, then start it
@@ -53,8 +78,27 @@ message while diagnostic tasks continue. Restore the connection afterward.
 Record actual observed values separately; no simulator run has been performed
 by the coding agent for this part.
 
+For the LDR, increase the light control and check that raw ADC decreases and
+the displayed relative percentage increases. Reduce light and check the
+opposite. Confirm values stay within raw 0-4095 and light 0-100%. Observe
+several 2-second sensor cycles while the 1-second diagnostic tasks continue.
+The initial light percentage depends on the simulated analog divider; no
+fixed default percentage is claimed without a run.
+
+## Checks performed
+
+Both target environments compile in `.pio/compile-check`, separately from
+the firmware watched by Wokwi. `test/sensor_values_compile.cpp` contains
+compile-time checks for positive/negative DHT22 values, checksum corruption,
+humidity range, and light conversion endpoints/midscale. These are pure
+conversion checks, not a sensor or MCU simulation. The existing compiled
+ARM port tests now stub sensor hardware, but were not executed for this part.
+Manual sensor timing, wiring, and live values remain to be verified above.
+
 ## References
 
 - [Wokwi DHT22 pins and controls](https://docs.wokwi.com/parts/wokwi-dht22).
 - [Aosong DHT22 datasheet](https://www.sparkfun.com/datasheets/Sensors/Temperature/DHT22.pdf).
 - [Official Blue Pill pin definitions](https://github.com/wokwi/wokwi-boards/blob/main/boards/stm32-bluepill/board.json).
+- [Wokwi photoresistor module](https://docs.wokwi.com/parts/wokwi-photoresistor-sensor).
+- [Wokwi Blue Pill peripheral support](https://docs.wokwi.com/parts/board-stm32-bluepill).

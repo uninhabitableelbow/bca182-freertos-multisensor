@@ -5,6 +5,8 @@
 #include "task.h"
 #include "semphr.h"
 #include "dht22.h"
+#include "ldr.h"
+#include "sensor_values.h"
 #include <cstdio>
 
 namespace {
@@ -71,6 +73,15 @@ void sensor_task(void *) {
         }
         if (length < 0 || static_cast<size_t>(length) >= sizeof(line)) { fail_stop(); }
         print_diagnostic(line);
+        uint16_t light_raw = 0;
+        if (ldr_read(&light_raw)) {
+            length = std::snprintf(line, sizeof(line), "Light: %u %% (ADC: %u)\r\n",
+                static_cast<unsigned>(ldr_percent(light_raw)), static_cast<unsigned>(light_raw));
+            if (length < 0 || static_cast<size_t>(length) >= sizeof(line)) { fail_stop(); }
+            print_diagnostic(line);
+        } else {
+            print_diagnostic("LDR: ADC read failed\r\n");
+        }
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000));
     }
 }
@@ -134,6 +145,10 @@ extern "C" void app_main(void) {
 
     if (!dht22_init()) {
         serial_write_fault("DHT22 initialization failed\r\n");
+        fail_stop();
+    }
+    if (!ldr_init()) {
+        serial_write_fault("LDR ADC initialization failed\r\n");
         fail_stop();
     }
 

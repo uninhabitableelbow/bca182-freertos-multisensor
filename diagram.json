@@ -29,6 +29,15 @@
       "attrs": {
         "value": "4700"
       }
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "ldr",
+      "top": 180,
+      "left": 215,
+      "attrs": {
+        "lux": "500"
+      }
     }
   ],
   "connections": [
@@ -72,6 +81,24 @@
       "dht_pullup:2",
       "dht22:SDA",
       "green",
+      []
+    ],
+    [
+      "ldr:VCC",
+      "bluepill:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "ldr:GND",
+      "bluepill:GND.1",
+      "black",
+      []
+    ],
+    [
+      "ldr:AO",
+      "bluepill:A0",
+      "orange",
       []
     ]
   ],

@@ -16,4 +16,9 @@ constexpr bool dht22_range_ok(const uint8_t *frame) {
     return dht22_humidity(frame) <= 1000 && dht22_temperature(frame) >= -400 &&
            dht22_temperature(frame) <= 800;
 }
+// Relative brightness for Wokwi's LDR module: lower ADC voltage means brighter.
+// Rounded percentage of the inverted ADC scale, not calibrated lux.
+constexpr uint16_t ldr_percent(uint16_t raw) {
+    return static_cast<uint16_t>(((4095U - (raw > 4095U ? 4095U : raw)) * 100U + 2047U) / 4095U);
+}
 #endif
