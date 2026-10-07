@@ -13,6 +13,7 @@ milestones, so the git history documents the evolution of the system:
 | III   | Two periodic FreeRTOS diagnostic tasks with blocking delays |
 | IV    | DHT22 and LDR acquisition in a 2-second SensorTask |
 | V     | SensorData messages sent through a FreeRTOS queue to SensorLogTask |
+| VI    | DisplayTask owns the OLED and shows queued temperature readings |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -58,6 +59,9 @@ See [Part IV sensor notes](docs/part-iv-sensors.md) for wiring and manual checks
 SensorTask now sends complete samples through a four-item queue to SensorLogTask,
 which blocks until data arrives and prints it. See [Part V communication notes](docs/part-v-data-communication.md)
 for message validity, queue behavior, and verification steps.
+DisplayTask receives a separate latest-sample queue and owns the SSD1306 OLED
+on PB6/PB7. See [Part VI display notes](docs/part-vi-display.md) for wiring
+and the user-run OLED checks.
 
 See [Part II verification](docs/part-ii-verification.md) for the checks
 and current verification status.

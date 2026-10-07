@@ -49,9 +49,15 @@ Part V implements the `SensorData` contract and a queue from SensorTask to
 SensorLogTask. See [data communication notes](part-v-data-communication.md).
 The milestone is `Add sensor data queue`; runtime verification is user-run.
 
+## Part VI - Display subsystem
+
+Part VI adds exclusive OLED ownership in DisplayTask and a separate display
+mailbox. See [display notes](part-vi-display.md). The milestone is
+`Implement OLED display task`; Wokwi verification remains user-run.
+
 ## Upcoming milestones
 
-- OLED ownership, encoder navigation, and alarm output.
+- Encoder navigation and alarm output.
 - PIR motion and the ACTIVE/INACTIVE state machine.
 - Consumer fan-out, shared-resource mutex, event signaling, and priorities.
 - Hardware-independent logic, unit tests, static analysis, functional tests,

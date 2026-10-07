@@ -9,11 +9,13 @@
 #include "ldr.h"
 #include "sensor_values.h"
 #include "sensor_data.h"
+#include "oled.h"
 #include <cstdio>
 
 namespace {
 SemaphoreHandle_t serial_mutex = nullptr;
 QueueHandle_t sensor_queue = nullptr;
+QueueHandle_t display_queue = nullptr;
 constexpr UBaseType_t sensor_queue_length = 4;
 constexpr uint16_t task_stack_words = 256; // 1 KiB per task on Cortex-M3.
 constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(1000);
@@ -79,6 +81,8 @@ void sensor_task(void *) {
         if (xQueueSend(sensor_queue, &message, 0) != pdPASS) {
             ++dropped_samples;
         }
+        // A separate one-item mailbox gives the display the latest sample.
+        if (xQueueOverwrite(display_queue, &message) != pdPASS) { fail_stop(); }
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000));
     }
 }
@@ -119,6 +123,40 @@ void sensor_log_task(void *) {
             print_diagnostic(line);
         } else {
             print_diagnostic("LDR: ADC read failed\r\n");
+        }
+    }
+}
+void display_task(void *) {
+    vTaskDelay(pdMS_TO_TICKS(100)); // OLED power-on settling time.
+    bool ready = false;
+    for (;;) {
+        if (!ready) {
+            ready = oled_init() && oled_line(0, "ROOM MONITOR") &&
+                    oled_line(2, "Temperature") && oled_line(4, "Waiting...");
+            if (!ready) {
+                print_diagnostic("OLED: initialization failed; retrying\r\n");
+                vTaskDelay(pdMS_TO_TICKS(2000));
+                continue;
+            }
+        }
+        SensorMessage message = {};
+        if (xQueueReceive(display_queue, &message, portMAX_DELAY) != pdPASS) { fail_stop(); }
+        char value[24];
+        if (message.dht_status == Dht22Status::ok) {
+            const float temperature = message.values.temperature;
+            const int tenths = static_cast<int>(temperature * 10.0f +
+                                               (temperature < 0 ? -0.5f : 0.5f));
+            const int magnitude = tenths < 0 ? -tenths : tenths;
+            const int length = std::snprintf(value, sizeof(value), "%s%d.%d C",
+                tenths < 0 ? "-" : "", magnitude / 10, magnitude % 10);
+            if (length < 0 || static_cast<size_t>(length) >= sizeof(value)) { fail_stop(); }
+            ready = oled_line(4, value);
+        } else {
+            ready = oled_line(4, "Error");
+        }
+        if (!ready) {
+            print_diagnostic("OLED: write failed; retrying\r\n");
+            vTaskDelay(pdMS_TO_TICKS(2000));
         }
     }
 }
@@ -180,7 +218,8 @@ extern "C" void app_main(void) {
         fail_stop();
     }
     sensor_queue = xQueueCreate(sensor_queue_length, sizeof(SensorMessage));
-    if (sensor_queue == nullptr) {
+    display_queue = xQueueCreate(1, sizeof(SensorMessage));
+    if (sensor_queue == nullptr || display_queue == nullptr) {
         serial_write_fault("Sensor queue allocation failed\r\n");
         fail_stop();
     }
@@ -196,6 +235,7 @@ extern "C" void app_main(void) {
 
     if (xTaskCreate(sensor_task, "SensorTask", 384, nullptr, 3, nullptr) != pdPASS ||
         xTaskCreate(sensor_log_task, "SensorLogTask", 384, nullptr, 2, nullptr) != pdPASS ||
+        xTaskCreate(display_task, "DisplayTask", 384, nullptr, 1, nullptr) != pdPASS ||
         xTaskCreate(task_a, "TaskA", task_stack_words, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(task_b, "TaskB", task_stack_words, nullptr, 1, nullptr) != pdPASS) {
         fail_stop();
