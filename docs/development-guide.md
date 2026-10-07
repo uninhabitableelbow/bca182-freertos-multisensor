@@ -43,11 +43,17 @@ SensorTask, periodic timing, and the manual verification procedure. The
 implementation milestones are `Implement DHT22 sensor acquisition` and
 `Add LDR measurement`. Wokwi verification remains a user-run check.
 
+## Part V - Data communication
+
+Part V implements the `SensorData` contract and a queue from SensorTask to
+SensorLogTask. See [data communication notes](part-v-data-communication.md).
+The milestone is `Add sensor data queue`; runtime verification is user-run.
+
 ## Upcoming milestones
 
-- Sensor acquisition, OLED ownership, encoder navigation, and alarm output.
+- OLED ownership, encoder navigation, and alarm output.
 - PIR motion and the ACTIVE/INACTIVE state machine.
-- Queue communication, shared-resource mutex, event signaling, and priorities.
+- Consumer fan-out, shared-resource mutex, event signaling, and priorities.
 - Hardware-independent logic, unit tests, static analysis, functional tests,
   and deliberate fault experiments.
 - Public README, academic report, and requirements traceability.

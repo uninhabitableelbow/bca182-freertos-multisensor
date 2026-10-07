@@ -4,13 +4,17 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "queue.h"
 #include "dht22.h"
 #include "ldr.h"
 #include "sensor_values.h"
+#include "sensor_data.h"
 #include <cstdio>
 
 namespace {
 SemaphoreHandle_t serial_mutex = nullptr;
+QueueHandle_t sensor_queue = nullptr;
+constexpr UBaseType_t sensor_queue_length = 4;
 constexpr uint16_t task_stack_words = 256; // 1 KiB per task on Cortex-M3.
 constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(1000);
 
@@ -53,36 +57,69 @@ void task_b(void *) {
 
 void sensor_task(void *) {
     TickType_t last_wake = xTaskGetTickCount();
+    uint32_t sequence = 0;
+    uint32_t dropped_samples = 0;
     // Let the sensor stabilize before its first transaction.
     vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000));
     for (;;) {
         Dht22Reading reading = {};
-        const Dht22Status status = dht22_read(&reading);
+        SensorMessage message = {};
+        message.sequence = ++sequence;
+        message.dropped_samples = dropped_samples;
+        message.dht_status = dht22_read(&reading);
+        if (message.dht_status == Dht22Status::ok) {
+            message.values.temperature = reading.temperature_tenths / 10.0f;
+            message.values.humidity = reading.humidity_tenths / 10.0f;
+        }
+        message.light_valid = ldr_read(&message.light_raw);
+        if (message.light_valid) {
+            message.values.lightLevel = ldr_percent(message.light_raw);
+        }
+        // A bounded FIFO preserves sample order. Do not stall acquisition if full.
+        if (xQueueSend(sensor_queue, &message, 0) != pdPASS) {
+            ++dropped_samples;
+        }
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000));
+    }
+}
+
+void sensor_log_task(void *) {
+    for (;;) {
+        SensorMessage message = {};
+        if (xQueueReceive(sensor_queue, &message, portMAX_DELAY) != pdPASS) {
+            fail_stop();
+        }
         char line[112];
-        int length;
-        if (status == Dht22Status::ok) {
-            const int magnitude = reading.temperature_tenths < 0 ?
-                -reading.temperature_tenths : reading.temperature_tenths;
+        int length = std::snprintf(line, sizeof(line),
+            "Sensor sample #%lu (dropped: %lu)\r\n",
+            static_cast<unsigned long>(message.sequence),
+            static_cast<unsigned long>(message.dropped_samples));
+        if (length < 0 || static_cast<size_t>(length) >= sizeof(line)) { fail_stop(); }
+        print_diagnostic(line);
+        if (message.dht_status == Dht22Status::ok) {
+            // Integer formatting avoids requiring printf's floating-point support.
+            const float temperature = message.values.temperature;
+            const int tenths = static_cast<int>(temperature * 10.0f +
+                                               (temperature < 0 ? -0.5f : 0.5f));
+            const unsigned humidity = static_cast<unsigned>(message.values.humidity * 10.0f + 0.5f);
+            const int magnitude = tenths < 0 ? -tenths : tenths;
             length = std::snprintf(line, sizeof(line),
                 "Temperature: %s%d.%02d C\r\nHumidity: %u.%02u %%\r\n",
-                reading.temperature_tenths < 0 ? "-" : "", magnitude / 10,
-                (magnitude % 10) * 10, static_cast<unsigned>(reading.humidity_tenths / 10),
-                static_cast<unsigned>((reading.humidity_tenths % 10) * 10));
+                tenths < 0 ? "-" : "", magnitude / 10,
+                (magnitude % 10) * 10, humidity / 10, (humidity % 10) * 10);
         } else {
-            length = std::snprintf(line, sizeof(line), "DHT22: %s\r\n", dht22_status_text(status));
+            length = std::snprintf(line, sizeof(line), "DHT22: %s\r\n", dht22_status_text(message.dht_status));
         }
         if (length < 0 || static_cast<size_t>(length) >= sizeof(line)) { fail_stop(); }
         print_diagnostic(line);
-        uint16_t light_raw = 0;
-        if (ldr_read(&light_raw)) {
+        if (message.light_valid) {
             length = std::snprintf(line, sizeof(line), "Light: %u %% (ADC: %u)\r\n",
-                static_cast<unsigned>(ldr_percent(light_raw)), static_cast<unsigned>(light_raw));
+                static_cast<unsigned>(message.values.lightLevel), static_cast<unsigned>(message.light_raw));
             if (length < 0 || static_cast<size_t>(length) >= sizeof(line)) { fail_stop(); }
             print_diagnostic(line);
         } else {
             print_diagnostic("LDR: ADC read failed\r\n");
         }
-        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000));
     }
 }
 } // namespace
@@ -130,7 +167,7 @@ extern "C" void rtos_assert_failed(const char *condition, const char *file,
  * @brief Application main entry point.
  *        Runs after the HAL and system clock are initialized in main().
  *
- *        Part IV adds SensorTask to the Part III diagnostic tasks.
+ *        SensorTask publishes samples; SensorLogTask consumes the queue.
  */
 extern "C" void app_main(void) {
     if (serial_init() != HAL_OK ||
@@ -140,6 +177,11 @@ extern "C" void app_main(void) {
 
     serial_mutex = xSemaphoreCreateMutex();
     if (serial_mutex == nullptr) {
+        fail_stop();
+    }
+    sensor_queue = xQueueCreate(sensor_queue_length, sizeof(SensorMessage));
+    if (sensor_queue == nullptr) {
+        serial_write_fault("Sensor queue allocation failed\r\n");
         fail_stop();
     }
 
@@ -153,6 +195,7 @@ extern "C" void app_main(void) {
     }
 
     if (xTaskCreate(sensor_task, "SensorTask", 384, nullptr, 3, nullptr) != pdPASS ||
+        xTaskCreate(sensor_log_task, "SensorLogTask", 384, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(task_a, "TaskA", task_stack_words, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(task_b, "TaskB", task_stack_words, nullptr, 1, nullptr) != pdPASS) {
         fail_stop();

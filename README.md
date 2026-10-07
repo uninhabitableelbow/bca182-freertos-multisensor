@@ -12,6 +12,7 @@ milestones, so the git history documents the evolution of the system:
 | II    | Wokwi configuration and HAL serial startup message |
 | III   | Two periodic FreeRTOS diagnostic tasks with blocking delays |
 | IV    | DHT22 and LDR acquisition in a 2-second SensorTask |
+| V     | SensorData messages sent through a FreeRTOS queue to SensorLogTask |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -54,6 +55,9 @@ slow simulation can make them take longer in wall-clock time. Task A has priorit
 Task B priority 1; both use `vTaskDelayUntil()` between executions.
 A mutex protects their shared USART1 output. SensorTask (priority 3) reads temperature, humidity, and relative light every 2 seconds after startup stabilization.
 See [Part IV sensor notes](docs/part-iv-sensors.md) for wiring and manual checks.
+SensorTask now sends complete samples through a four-item queue to SensorLogTask,
+which blocks until data arrives and prints it. See [Part V communication notes](docs/part-v-data-communication.md)
+for message validity, queue behavior, and verification steps.
 
 See [Part II verification](docs/part-ii-verification.md) for the checks
 and current verification status.
