@@ -5,8 +5,10 @@
 The DHT22 data pin connects to PA1, with a 4.7k resistor from data to 3.3 V.
 VCC connects to `bluepill:3V3.1`, GND to `bluepill:GND.1`; NC is unused.
 TIM2 runs freely at 1 MHz for pulse timing; TIM3 remains reserved for the
-Wokwi scheduler. The GPIO is open-drain, so releasing it allows the sensor
-to drive the line. No Arduino API or external sensor library is used.
+Wokwi scheduler. PA1 is an input with pull-up while idle and receiving. For a transaction,
+the driver enables output to hold the line low for 1.1 ms, then explicitly
+returns to input mode. The resistor pulls the released line high and the
+sensor can drive its response. No Arduino API or external sensor library is used.
 
 The driver bounds every polling loop, checks the 40-bit frame checksum and
 valid ranges, and decodes sign-magnitude temperature. Values are stored in
@@ -14,6 +16,10 @@ tenths, with integer formatting to avoid floating-point printf overhead.
 Two decimal digits in serial output match the handout; this does not imply
 0.01-degree sensor resolution. Errors print a reason without publishing
 invalid data. Acquisition requires at least 2 seconds between attempts.
+Failure messages distinguish a stuck-low bus, a stopped timing clock, a
+missing sensor response, and an incomplete data pulse. Explicit input mode
+avoids relying on simulated open-drain output readback. The user confirmed
+successful readings after this change, as recorded below.
 
 ## SensorTask and periodic timing (steps 22-23)
 
@@ -93,7 +99,19 @@ compile-time checks for positive/negative DHT22 values, checksum corruption,
 humidity range, and light conversion endpoints/midscale. These are pure
 conversion checks, not a sensor or MCU simulation. The existing compiled
 ARM port tests now stub sensor hardware, but were not executed for this part.
-Manual sensor timing, wiring, and live values remain to be verified above.
+
+### User-run Wokwi check (2026-10-07)
+
+Screenshots supplied by the user show repeated temperature/humidity readings
+of 25.40 C and 61.20%, followed by 31.00 C and 71.50% after changing the
+sensor controls. The LDR readings changed from 76% (ADC 1001) to 99%
+(ADC 32), then 3% (ADC 3960) when illumination was reduced. Tasks A and B
+continued printing between sensor samples. The displayed ADC values agree
+with the documented percentage conversion.
+
+This confirms acquisition and response to changed sensor inputs in Wokwi.
+The screenshots do not measure exact sample intervals. Negative-temperature,
+disconnection, and physical-board checks have not been recorded as completed.
 
 ## References
 

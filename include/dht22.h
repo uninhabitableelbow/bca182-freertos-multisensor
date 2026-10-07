@@ -6,7 +6,10 @@ struct Dht22Reading {
     int16_t temperature_tenths;
     uint16_t humidity_tenths;
 };
-enum class Dht22Status { ok, not_ready, timeout, checksum, range };
+enum class Dht22Status {
+    ok, not_ready, timeout, checksum, range,
+    bus_stuck_low, timer_error, response_timeout, data_timeout
+};
 
 // Single owner: SensorTask. PA1 data, TIM2 free-running at 1 MHz.
 extern "C" bool dht22_init(void);
