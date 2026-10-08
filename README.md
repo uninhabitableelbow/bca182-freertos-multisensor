@@ -6,6 +6,8 @@ A STM32F103C8 room monitor built for BCA182 Laboratory Activity 1 using
 STM32Cube HAL and native FreeRTOS. Temperature, humidity, relative light,
 and motion drive selectable OLED pages and a temperature alarm.
 [Development history](docs/part-xviii-git-history.md) records the engineering milestones.
+The separate [academic laboratory report](docs/laboratory-report.pdf) presents
+design reasoning, the task table, verification evidence, and limitations.
 
 ## Features
 

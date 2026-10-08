@@ -92,6 +92,11 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XX creates the separate nine-page [academic report](laboratory-report.pdf)
+with all eight required sections and the actual task design table. All pages
+were rendered and visually inspected; see [report notes](part-xx-report.md).
+The user authorized committing and pushing Part XX on 2026-10-08.
+
 Part XIX prepares the public README's required 21 sections and three
 captioned Mermaid figures. Both actual user-supplied Wokwi captures were
 saved, inspected, and inserted with captions. See
