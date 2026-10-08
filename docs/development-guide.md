@@ -92,6 +92,12 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XXI adds the [requirements traceability matrix](requirements-traceability.md)
+for FR-01 through FR-10 and major RTOS, testing, history, README, and report
+requirements. Evidence scope and unmeasured behavior are explicit. Source,
+test, and documentation links were checked. The user authorized committing
+and pushing Part XXI on 2026-10-08.
+
 Part XX creates the separate nine-page [academic report](laboratory-report.pdf)
 with all eight required sections and the actual task design table. All pages
 were rendered and visually inspected; see [report notes](part-xx-report.md).

@@ -8,6 +8,8 @@ and motion drive selectable OLED pages and a temperature alarm.
 [Development history](docs/part-xviii-git-history.md) records the engineering milestones.
 The separate [academic laboratory report](docs/laboratory-report.pdf) presents
 design reasoning, the task table, verification evidence, and limitations.
+The [requirements traceability matrix](docs/requirements-traceability.md)
+maps each major requirement to implementation and verification evidence.
 
 ## Features
 
