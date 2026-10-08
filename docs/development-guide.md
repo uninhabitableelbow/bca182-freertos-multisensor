@@ -92,6 +92,13 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XVIII reviews Git/GitHub development history and maps the eighteen
+completed handout milestones to actual commits in
+[Git history audit](part-xviii-git-history.md). Local main and remote main
+matched at the time of review. Finalize technical documentation remains
+pending the remaining documentation work. The user authorized committing
+and pushing this audit on 2026-10-08.
+
 Part XVII adds isolated modes for removing Task A's delay, raising InputTask
 priority, and bypassing serial mutex protection. Normal mode 0 remains
 selected. See [fault experiments](part-xvii-fault-experiments.md).
