@@ -92,6 +92,11 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XIV adds executable Unity suites for the production pure logic.
+`pio test -e native` passed all 34 cases (11 alarm, 13 navigation/encoder,
+10 state). See [unit test coverage](part-xiv-unit-tests.md). The user approved
+the three unit-test milestones for commit and push on 2026-10-08.
+
 Part XIII separates tasks, shared RTOS objects, synchronized state reading,
 and diagnostics from startup orchestration. See
 [module organization](part-xiii-modules.md). Both configurations passed

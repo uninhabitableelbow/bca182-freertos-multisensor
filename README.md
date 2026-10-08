@@ -21,6 +21,7 @@ milestones, so the git history documents the evolution of the system:
 | XI    | Serial mutex review and complete error-report protection; user verified |
 | XII   | Explicit task priorities and scheduling justification; user approved |
 | XIII  | Separate task modules and focused startup; user approved |
+| XIV   | Native Unity unit tests: 34 passed across alarm, navigation, and state logic |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -37,6 +38,9 @@ See [Part XIII module map](docs/part-xiii-modules.md) for task boundaries,
 shared RTOS object ownership, and the regression verification checklist.
 
 ## Build
+
+Unit tests run on the PC with `pio test -e native` (34 cases).
+See [Part XIV unit tests](docs/part-xiv-unit-tests.md) for coverage and scope.
 
 ```
 pio run
