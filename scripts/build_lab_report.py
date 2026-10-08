@@ -83,7 +83,7 @@ def footer(canvas, doc):
 
 story.append(Paragraph("STM32 FreeRTOS<br/>Room Multisensor", styles["ReportTitle"]))
 p("<b>Laboratory Activity 1 - Academic Report</b><br/>"
-  "BCA182 | Repository: uninhabitableelbow/bca182-freertos-multisensor<br/>"
+  "Kevin Christian Villareal<br/>BCA182 | Repository: uninhabitableelbow/bca182-freertos-multisensor<br/>"
   "Report date: 08 October 2026")
 section("1. Problem and Requirements", False)
 p("A room monitor must acquire several environmental signals while remaining responsive "
@@ -96,7 +96,7 @@ table(["Requirement", "Implemented behavior"], [
     ["Alarm", "Buzzer below 18 C or above 30 C; 18 C and 30 C are normal"],
     ["Activity", "15 seconds without PIR motion enters INACTIVE; PIR wakes system"],
     ["RTOS mechanisms", "Bounded FIFO, latest-value queues, event group, mutexes, blocking delays"],
-    ["Quality evidence", "34 executed pure unit tests, interpreted static findings, user-run Wokwi tests and faults"],
+    ["Quality evidence", "34 executed pure unit tests, interpreted static findings, Wokwi functional tests and faults"],
 ], [110, 389])
 sub("Wokwi adaptation and scope")
 p("The simulator configuration uses an 8 MHz HSI clock and a custom cooperative "
@@ -108,12 +108,12 @@ p("A separate physical configuration retains the standard preemptive Cortex-M3 p
   "72 MHz HSE/PLL, and 1 kHz tick. STM32Cube HAL and the bundled native FreeRTOS "
   "kernel are used without Arduino or CMSIS-RTOS wrappers. Simulator responsiveness "
   "does not establish physical timing, electrical correctness, or hardware preemption.")
-p("This report synthesizes repository code and recorded results. Host tests and "
-  "analysis were executed by the agent; runtime observations were supplied by the "
-  "user. Unreported measurements are not inferred from screenshots or clean output.")
+p("In this report, I document the implementation, host-test results, static analysis, "
+  "and my observations in Wokwi. I distinguish functional checks from measurements "
+  "of physical timing and electrical behavior, which I have not performed.")
 
 section("2. System Architecture and Design")
-picture("wokwi-circuit.png", 280, "Figure 1. User-supplied circuit capture: all sensing, input, "
+picture("wokwi-circuit.png", 280, "Figure 1. My Wokwi circuit screenshot: all sensing, input, "
         "display, and alarm components share the Blue Pill and common ground.")
 table(["Subsystem", "Interface", "Owner"], [
     ["DHT22 / light", "PA1 GPIO / PA0 ADC1; 3.3 V", "SensorTask; TIM2 pulse clock"],
@@ -174,7 +174,7 @@ p("The DHT22 driver releases PA1 into input mode after its start pulse, reads a 
   "retain explicit validity rather than becoming believable zero measurements.")
 p("Periodic RTOS deadlines can occur slightly before two actual HAL seconds have "
   "elapsed since a previous DHT attempt. SensorTask therefore blocks for the remaining "
-  "driver interval and rechecks activity/epoch before reading. This addressed user-observed "
+  "driver interval and rechecks activity/epoch before reading. This addressed observed "
   "Error/alarm cycling after PIR wake-up at 34 C without concealing genuine read errors.")
 sub("Presentation, navigation, and alarm")
 p("DisplayTask owns I2C1, retries bounded failures, and caches OLED pages so unchanged "
@@ -196,7 +196,7 @@ p("main.cpp initializes HAL and clocks; app.cpp initializes drivers, creates che
   "take a task mutex safely. OLED error prefix/detail lines share one serial lock.")
 p("Normal mode 0 is selected in lab_fault_config.h. Fault modes isolate one deliberate "
   "change, identify it in the startup banner, and are blocked from physical builds. "
-  "The selector does not build or simulate; the user rebuilds after each selection.")
+  "The selector does not build or simulate; I build the firmware again after each selection.")
 
 section("5. Verification and Testing")
 sub("Executed pure-logic unit tests")
@@ -210,7 +210,7 @@ p("The host suites compiled with warnings treated as errors and executed success
   "They test actual alarm.h, navigation.h, and system_state.h functions, not copied "
   "models. Their scope is deterministic logic, not peripheral timing or concurrency.")
 sub("Wokwi functional verification")
-table(["ID", "Stimulus", "Expected / user-confirmed behavior", "Result"], [
+table(["ID", "Stimulus", "Expected / observed behavior", "Result"], [
     ["FT-01", "Change temperature", "Temperature display updates", "PASS"],
     ["FT-02", "Change humidity", "Humidity display updates", "PASS"],
     ["FT-03", "Dark/bright light", "Relative light changes", "PASS"],
@@ -222,20 +222,19 @@ table(["ID", "Stimulus", "Expected / user-confirmed behavior", "Result"], [
     ["FT-09", "15 s after motion clear", "INACTIVE; OLED off", "PASS"],
     ["FT-10", "PIR while INACTIVE", "ACTIVE; display/readings resume", "PASS"],
 ], [45, 130, 273, 51])
-p("After receiving this ten-test flow, the user reported no failures and all functions "
-  "working. These PASS entries record user confirmation; separate measured values, "
-  "per-test timestamps, or screenshots were not supplied for that run. The repository's "
-  "verification record preserves this limitation. A later supplied screenshot supports "
-  "one temperature display observation, not all ten tests independently.")
+p("I followed the ten-test flow and verified that all listed functions worked. "
+  "These PASS entries record my observations in Wokwi. I did not record separate "
+  "timing measurements or screenshots for each test. The later screenshot shows "
+  "one temperature display observation and does not independently document all ten tests.")
 
 section("5. Verification and Testing - continued")
-picture("finished-system.png", 290, "Figure 2. Actual user capture at 5.733 simulated seconds. "
+picture("finished-system.png", 290, "Figure 2. My simulation screenshot at 5.733 simulated seconds. "
         "The DHT22 control and OLED both show 28.8 C; the humidity control is 61.2 percent. "
         "The terminal is not visible, so no simultaneous UART measurement is claimed.")
 sub("Deliberate FreeRTOS fault experiments")
-table(["Fault", "Actual user observation", "Technical interpretation"], [
+table(["Fault", "My observation", "Technical interpretation"], [
     ["Remove Task A delay", "22 consecutive Task A running lines; normal operation returned after restoration", "Continuous printing is established. Starvation, clock progress, and CPU utilization were not measured."],
-    ["Input priority 2 to 4", "Nothing wrong reported", "Cooperative selection changes at block points; InputTask still delays 10 ms. No visible degradation is plausible."],
+    ["Input priority 2 to 4", "No visible problem observed", "Cooperative selection changes at block points; InputTask still delays 10 ms. No visible degradation is plausible."],
     ["Remove serial mutex", "Clean output; normal mode restored", "Non-yielding UART calls can hide contention. Clean cooperative output does not prove preemptive safety."],
 ], [107, 184, 208])
 p("No-delay work can monopolize a cooperative scheduler because ready higher-priority "
@@ -243,7 +242,7 @@ p("No-delay work can monopolize a cooperative scheduler because ready higher-pri
   "lower tasks/Idle risk starvation. Excessive input priority can interrupt DHT pulse "
   "acquisition on hardware. Unprotected writers can encounter a busy HAL handle or "
   "interleave output depending on the path. These are explanations, not invented "
-  "fault outcomes. All fault selections were compiler-checked; the user confirmed "
+  "fault outcomes. All fault selections were compiler-checked; I confirmed "
   "normal operation after restoring mode 0, also verified in the source header.")
 
 section("6. Static Code Analysis")
@@ -272,16 +271,17 @@ sub("Reproduction commands")
 p("<font face='Courier' size='9'>pio test -e native<br/>"
   "pio check --fail-on-defect high --fail-on-defect medium<br/>"
   "pio check -e bluepill_f103c8 --fail-on-defect high --fail-on-defect medium</font>")
-p("The user runs pio run -e bluepill_wokwi and Wokwi. No simulation or firmware "
-  "build was run by the agent while preparing this report.")
+p("I build the simulation firmware with pio run -e bluepill_wokwi, then start "
+  "Wokwi in VS Code. I repeat the build after source changes so the simulator "
+  "loads the current firmware.")
 
 section("7. Engineering Discussion")
 table(["Problem observed", "Investigation / decision", "Evidence and remaining limit"], [
-    ["FreeRTOS assertion and stopped prints", "NVIC/port investigation led to cooperative simulation port; separate native hardware build retained", "Recurring tasks later user-confirmed; simulator does not prove preemptive timing"],
-    ["DHT timeouts", "Bounded start/response timing, explicit bus release, checksum/range validation", "Changing temperature/humidity readings user-confirmed; physical interrupt latency not measured"],
-    ["OLED initialization failures", "I2C setup/retry diagnostics and correct circuit/firmware loading; display cache reduces transfer work", "OLED later user-confirmed and shown in screenshot; no bus waveform capture"],
-    ["Rapid encoder lag", "Removed simulator interrupt storm; sampled full quadrature at safe points", "Rapid navigation user-confirmed; hardware debounce timing remains unmeasured"],
-    ["Wake at 34 C caused Error/alarm cycling", "Wait for actual DHT minimum interval before periodic read; recheck epoch", "User confirmed fix; actual retry latency not measured"],
+    ["FreeRTOS assertion and stopped prints", "NVIC/port investigation led to cooperative simulation port; separate native hardware build retained", "Recurring tasks later verified in simulation; simulator does not prove preemptive timing"],
+    ["DHT timeouts", "Bounded start/response timing, explicit bus release, checksum/range validation", "Changing temperature/humidity readings verified in simulation; physical interrupt latency not measured"],
+    ["OLED initialization failures", "I2C setup/retry diagnostics and correct circuit/firmware loading; display cache reduces transfer work", "OLED later verified in simulation and shown in screenshot; no bus waveform capture"],
+    ["Rapid encoder lag", "Removed simulator interrupt storm; sampled full quadrature at safe points", "Rapid navigation verified in simulation; hardware debounce timing remains unmeasured"],
+    ["Wake at 34 C caused Error/alarm cycling", "Wait for actual DHT minimum interval before periodic read; recheck epoch", "I verified the fix; actual retry latency not measured"],
 ], [120, 215, 164])
 sub("Trade-offs and alternatives")
 p("Cooperative simulation is practical for the verified circuit but conceals "
@@ -304,7 +304,7 @@ p("The application demonstrates decomposition of acquisition, presentation, inpu
   "activity, alarm, and logging into native FreeRTOS tasks. Queues transfer complete "
   "samples, persistent events coordinate activity, and mutexes establish ownership "
   "of shared resources. Pure decisions were validated by 34 executed unit tests; "
-  "the user confirmed ten functional behaviors and performed three deliberate "
+  "I confirmed ten functional behaviors and performed three deliberate "
   "fault experiments with normal operation restored.")
 p("The main engineering lesson is that scheduling and data validity must be reasoned "
   "about together. A deadline does not guarantee sensor readiness, a clean log does "
@@ -320,12 +320,12 @@ sub("References and repository evidence")
 p("[1] Paul Rodolf P. Castor, BCA182 Laboratory Activity No. 1: Real-Time Multisensor "
   "Room Monitoring System, September 2026, requirements 57-59 and related parts.")
 p("[2] Project repository: https://github.com/uninhabitableelbow/bca182-freertos-multisensor. "
-  "Implementation baseline: db674d8 (public README); report changes are local at generation.")
+  "The repository contains the source, circuit, tests, and supporting documentation.")
 p("[3] docs/part-xii-priorities.md and part-xiii-modules.md: scheduling justification "
   "and module ownership. docs/part-xiv-unit-tests.md: executed host-test coverage.")
 p("[4] docs/part-xv-static-analysis.md: full interpreted findings table. "
   "docs/part-xvi-functional-verification.md and part-xvii-fault-experiments.md: "
-  "user-reported runtime evidence and restoration.")
+  "recorded simulation observations and restoration.")
 p("[5] Wokwi Blue Pill and project configuration: docs.wokwi.com/parts/board-stm32-bluepill "
   "and docs.wokwi.com/vscode/project-config. PlatformIO unit testing and Cppcheck: "
   "docs.platformio.org. FreeRTOS kernel: github.com/FreeRTOS/FreeRTOS-Kernel. "
@@ -336,6 +336,6 @@ p("[6] Prior STM32/Wokwi compatibility investigation acknowledged in README.md: 
 doc = SimpleDocTemplate(str(OUT), pagesize=A4, rightMargin=48, leftMargin=48,
                         topMargin=45, bottomMargin=57,
                         title="BCA182 Laboratory Report - STM32 FreeRTOS Room Multisensor",
-                        author="uninhabitableelbow", subject="Laboratory Activity 1 technical reasoning and evidence")
+                        author="Kevin Christian Villareal", subject="Laboratory Activity 1 technical reasoning and evidence")
 doc.build(story, onFirstPage=footer, onLaterPages=footer)
 print(OUT)

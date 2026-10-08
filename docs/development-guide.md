@@ -92,6 +92,11 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XXII records the final technical checks and Hackster showcase preparation
+in the [publication record](part-xxii-publication.md). The article is maintained
+on Hackster rather than duplicated in the repository. The laboratory report
+uses first-person descriptions of the recorded simulation observations.
+
 Part XXI adds the [requirements traceability matrix](requirements-traceability.md)
 for FR-01 through FR-10 and major RTOS, testing, history, README, and report
 requirements. Evidence scope and unmeasured behavior are explicit. Source,
