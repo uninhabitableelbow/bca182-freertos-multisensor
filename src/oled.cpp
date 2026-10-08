@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
+#include <iterator>
 
 namespace {
 I2C_HandleTypeDef bus = {};
@@ -69,11 +71,9 @@ bool oled_line(unsigned page, const char *text) {
     uint8_t pixels[129] = {0x40};
     unsigned column = 0;
     while (*text && column + 6 <= 128) {
-        const Glyph *selected = nullptr;
-        for (const auto &glyph : font) {
-            if (glyph.character == *text) { selected = &glyph; break; }
-        }
-        if (selected != nullptr) {
+        const auto selected = std::find_if(std::begin(font), std::end(font),
+            [text](const Glyph &glyph) { return glyph.character == *text; });
+        if (selected != std::end(font)) {
             for (unsigned i = 0; i < 5; ++i) { pixels[1 + column + i] = selected->columns[i]; }
         }
         column += 6;

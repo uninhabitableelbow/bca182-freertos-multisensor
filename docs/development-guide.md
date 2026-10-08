@@ -92,6 +92,13 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XV runs Cppcheck on both firmware configurations, corrects the OLED
+font lookup style finding, and records reviewed framework and cross-module
+diagnostics in [static analysis findings](part-xv-static-analysis.md).
+Both configurations have 0 high, 0 medium, and 33 reviewed low findings.
+All 34 unit tests still pass. The user authorized committing and pushing
+`Resolve static analysis findings` on 2026-10-08.
+
 Part XIV adds executable Unity suites for the production pure logic.
 `pio test -e native` passed all 34 cases (11 alarm, 13 navigation/encoder,
 10 state). See [unit test coverage](part-xiv-unit-tests.md). The user approved

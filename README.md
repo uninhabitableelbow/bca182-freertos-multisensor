@@ -22,6 +22,7 @@ milestones, so the git history documents the evolution of the system:
 | XII   | Explicit task priorities and scheduling justification; user approved |
 | XIII  | Separate task modules and focused startup; user approved |
 | XIV   | Native Unity unit tests: 34 passed across alarm, navigation, and state logic |
+| XV    | Static analysis passed in both firmware configurations; findings reviewed |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -41,6 +42,8 @@ shared RTOS object ownership, and the regression verification checklist.
 
 Unit tests run on the PC with `pio test -e native` (34 cases).
 See [Part XIV unit tests](docs/part-xiv-unit-tests.md) for coverage and scope.
+Run `pio check` for static analysis. See [Part XV findings](docs/part-xv-static-analysis.md)
+for the findings table, resolutions, and analysis limits.
 
 ```
 pio run
