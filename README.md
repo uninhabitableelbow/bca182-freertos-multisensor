@@ -24,6 +24,7 @@ milestones, so the git history documents the evolution of the system:
 | XIV   | Native Unity unit tests: 34 passed across alarm, navigation, and state logic |
 | XV    | Static analysis passed in both firmware configurations; findings reviewed |
 | XVI   | All ten Wokwi functional tests passed; user confirmed |
+| XVII  | Three fault experiments recorded; normal operation restored by user |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -47,6 +48,8 @@ Run `pio check` for static analysis. See [Part XV findings](docs/part-xv-static-
 for the findings table, resolutions, and analysis limits.
 See [Part XVI functional tests](docs/part-xvi-functional-verification.md)
 for FT-01 through FT-10 and the actual-observation record.
+See [Part XVII fault experiments](docs/part-xvii-fault-experiments.md) for
+mode selection and restoration. Default mode 0 preserves normal operation.
 
 ```
 pio run

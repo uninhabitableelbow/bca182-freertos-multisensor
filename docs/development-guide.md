@@ -92,6 +92,15 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XVII adds isolated modes for removing Task A's delay, raising InputTask
+priority, and bypassing serial mutex protection. Normal mode 0 remains
+selected. See [fault experiments](part-xvii-fault-experiments.md).
+All modes passed compiler checks. The user reported repeated Task A output,
+no visible issue with increased input priority, and clean unprotected serial
+output, then confirmed normal operation after restoring mode 0. Observations
+and scheduling explanations are recorded. The user authorized committing
+and pushing on 2026-10-08 with normal mode 0 selected.
+
 Part XVI prepares the ten required Wokwi functional tests and a results
 record in [functional verification](part-xvi-functional-verification.md).
 After receiving the full test flow, the user reported no failures and all

@@ -1,4 +1,5 @@
 #include "diagnostics.h"
+#include "lab_fault_config.h"
 #include "rtos_objects.h"
 #include "stm32f1xx_hal.h"
 #include "serial.h"
@@ -15,32 +16,42 @@ constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(1000);
 // Protect USART1, its shared HAL handle, and each complete diagnostic report.
 // Optional detail and its newline belong to the same protected report.
 void print_diagnostic(const char *message, const char *detail) {
+#if LAB_FAULT_EXPERIMENT != 3
     if (xSemaphoreTake(serial_mutex, portMAX_DELAY) != pdTRUE) {
         fail_stop();
     }
+#endif
     HAL_StatusTypeDef status = serial_write(message);
     if (status == HAL_OK && detail != nullptr) {
         status = serial_write(detail);
         if (status == HAL_OK) { status = serial_write("\r\n"); }
     }
+#if LAB_FAULT_EXPERIMENT != 3
     const BaseType_t released = xSemaphoreGive(serial_mutex);
+#endif
     if (status != HAL_OK) {
         __disable_irq();
         serial_write_fault("UART transmission failed\r\n");
         fail_stop();
     }
+#if LAB_FAULT_EXPERIMENT != 3
     if (released != pdTRUE) {
         __disable_irq();
         serial_write_fault("Serial mutex release failed\r\n");
         fail_stop();
     }
+#endif
 }
 
 void task_a(void *) {
+#if LAB_FAULT_EXPERIMENT != 1
     TickType_t last_wake = xTaskGetTickCount();
+#endif
     for (;;) {
         print_diagnostic("Task A running\r\n");
+#if LAB_FAULT_EXPERIMENT != 1
         vTaskDelayUntil(&last_wake, diagnostic_period);
+#endif
     }
 }
 

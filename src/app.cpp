@@ -1,4 +1,5 @@
 #include "app.h"
+#include "lab_fault_config.h"
 #include "stm32f1xx_hal.h"
 #include "serial.h"
 #include "FreeRTOS.h"
@@ -19,7 +20,11 @@ constexpr uint16_t task_stack_words = 256; // 1 KiB per task on Cortex-M3.
 // DHT pulse acquisition must outrank task-level polling on physical hardware.
 constexpr UBaseType_t sensor_priority = 3;
 constexpr UBaseType_t motion_priority = 2;
+#if LAB_FAULT_EXPERIMENT == 2
+constexpr UBaseType_t input_priority = 4; // Deliberate, unnecessarily high priority.
+#else
 constexpr UBaseType_t input_priority = 2;
+#endif
 constexpr UBaseType_t alarm_priority = 2;
 constexpr UBaseType_t display_priority = 1;
 constexpr UBaseType_t logging_priority = 1;
@@ -35,6 +40,14 @@ extern "C" void app_main(void) {
         serial_write("BCA182 FreeRTOS Multisensor\r\nSystem starting...\r\n") != HAL_OK) {
         fail_stop();
     }
+
+#if LAB_FAULT_EXPERIMENT == 1
+    serial_write("LAB FAULT 1: Task A blocking delay removed\r\n");
+#elif LAB_FAULT_EXPERIMENT == 2
+    serial_write("LAB FAULT 2: InputTask priority raised to 4\r\n");
+#elif LAB_FAULT_EXPERIMENT == 3
+    serial_write("LAB FAULT 3: serial mutex protection removed\r\n");
+#endif
 
     create_rtos_objects();
 
