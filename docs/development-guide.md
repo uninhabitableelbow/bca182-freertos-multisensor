@@ -92,6 +92,12 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XIX prepares the public README's required 21 sections and three
+captioned Mermaid figures. Both actual user-supplied Wokwi captures were
+saved, inspected, and inserted with captions. See
+[README completion](part-xix-readme.md). The user authorized committing
+and pushing Part XIX on 2026-10-08.
+
 Part XVIII reviews Git/GitHub development history and maps the eighteen
 completed handout milestones to actual commits in
 [Git history audit](part-xviii-git-history.md). Local main and remote main
