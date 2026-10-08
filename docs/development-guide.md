@@ -92,6 +92,13 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XVI prepares the ten required Wokwi functional tests and a results
+record in [functional verification](part-xvi-functional-verification.md).
+After receiving the full test flow, the user reported no failures and all
+functions working, and authorized commit/push on 2026-10-08. The record marks
+FT-01 through FT-10 as user-confirmed PASS. The milestone is
+`Complete Wokwi verification`.
+
 Part XV runs Cppcheck on both firmware configurations, corrects the OLED
 font lookup style finding, and records reviewed framework and cross-module
 diagnostics in [static analysis findings](part-xv-static-analysis.md).
