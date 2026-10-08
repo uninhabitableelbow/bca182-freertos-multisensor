@@ -44,17 +44,25 @@ constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(1000);
     for (;;) { __NOP(); }
 }
 
-void print_diagnostic(const char *message) {
+// Protect USART1, its shared HAL handle, and each complete diagnostic report.
+// Optional detail and its newline belong to the same protected report.
+void print_diagnostic(const char *message, const char *detail = nullptr) {
     if (xSemaphoreTake(serial_mutex, portMAX_DELAY) != pdTRUE) {
         fail_stop();
     }
-    const HAL_StatusTypeDef status = serial_write(message);
+    HAL_StatusTypeDef status = serial_write(message);
+    if (status == HAL_OK && detail != nullptr) {
+        status = serial_write(detail);
+        if (status == HAL_OK) { status = serial_write("\r\n"); }
+    }
     const BaseType_t released = xSemaphoreGive(serial_mutex);
     if (status != HAL_OK) {
+        __disable_irq();
         serial_write_fault("UART transmission failed\r\n");
         fail_stop();
     }
     if (released != pdTRUE) {
+        __disable_irq();
         serial_write_fault("Serial mutex release failed\r\n");
         fail_stop();
     }
@@ -154,6 +162,22 @@ void sensor_task(void *) {
             snapshot = read_system();
         }
         if (slept) { last_wake = xTaskGetTickCount(); }
+        // Periodic tick deadlines can fall slightly before the driver's actual
+        // previous start time. Block until the DHT's full interval has elapsed,
+        // rather than publishing "not ready" as a failed sensor measurement.
+        uint32_t remaining_ms = dht22_ready_in_ms();
+        while (remaining_ms != 0U) {
+            const TickType_t wait_ticks = static_cast<TickType_t>(
+                (remaining_ms * configTICK_RATE_HZ + 999U) / 1000U);
+            vTaskDelay(wait_ticks);
+            remaining_ms = dht22_ready_in_ms();
+        }
+        const SystemSnapshot before_read = read_system();
+        if (before_read.state != SystemState::ACTIVE || before_read.epoch != snapshot.epoch) {
+            last_wake = xTaskGetTickCount();
+            continue;
+        }
+        snapshot = before_read;
         Dht22Reading reading = {};
         SensorMessage message = {};
         message.state_epoch = snapshot.epoch;
@@ -348,9 +372,7 @@ void display_task(void *) {
             ready = oled_init() && oled_line(0, "ROOM MONITOR") &&
                     oled_line(2, "Temperature") && oled_line(4, "Waiting...");
             if (!ready) {
-                print_diagnostic("OLED: initialization failed; retrying\r\n");
-                print_diagnostic(oled_error());
-                print_diagnostic("\r\n");
+                print_diagnostic("OLED: initialization failed; retrying\r\n", oled_error());
                 vTaskDelay(pdMS_TO_TICKS(2000));
                 continue;
             }
@@ -399,9 +421,7 @@ void display_task(void *) {
         ready = ready && oled_line(4, value);
         ready = ready && oled_line(6, snapshot.alarm ? "ALARM" : "");
         if (!ready) {
-            print_diagnostic("OLED: write failed; retrying\r\n");
-            print_diagnostic(oled_error());
-            print_diagnostic("\r\n");
+            print_diagnostic("OLED: write failed; retrying\r\n", oled_error());
             vTaskDelay(pdMS_TO_TICKS(2000));
         }
         vTaskDelay(pdMS_TO_TICKS(20));

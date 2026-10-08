@@ -82,9 +82,17 @@ See [event signaling checks](part-x-events.md). The milestone is
 `Add FreeRTOS event group`. The user confirmed all verification steps and
 authorized committing and pushing on 2026-10-08.
 
+## Part XI - Mutex
+
+Part XI reviews all serial writers, protects complete OLED error reports,
+and documents actual mutex ownership and lock ordering. See
+[mutex verification](part-xi-mutex.md). The milestone is
+`Protect serial output with mutex`. The user confirmed verification, including
+the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
+
 ## Upcoming milestones
 
-- Shared-resource mutex explanation and task priorities.
+- Task priorities and scheduling justification.
 - Hardware-independent logic, unit tests, static analysis, functional tests,
   and deliberate fault experiments.
 - Public README, academic report, and requirements traceability.

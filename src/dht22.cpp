@@ -67,6 +67,11 @@ extern "C" bool dht22_init(void) {
     return true;
 }
 
+extern "C" uint32_t dht22_ready_in_ms(void) {
+    const uint32_t elapsed = static_cast<uint32_t>(HAL_GetTick() - previous_start_ms);
+    return elapsed < 2000U ? 2000U - elapsed : 0U;
+}
+
 extern "C" Dht22Status dht22_read(Dht22Reading *reading) {
     if (!initialized || reading == nullptr) { return Dht22Status::not_ready; }
     const uint32_t now = HAL_GetTick();
