@@ -12,6 +12,8 @@
 #include "oled.h"
 #include "encoder.h"
 #include "navigation.h"
+#include "alarm.h"
+#include "buzzer.h"
 #include <cstdio>
 
 namespace {
@@ -19,6 +21,7 @@ SemaphoreHandle_t serial_mutex = nullptr;
 QueueHandle_t sensor_queue = nullptr;
 QueueHandle_t display_queue = nullptr;
 QueueHandle_t mode_queue = nullptr;
+QueueHandle_t alarm_queue = nullptr;
 constexpr UBaseType_t sensor_queue_length = 4;
 constexpr uint16_t task_stack_words = 256; // 1 KiB per task on Cortex-M3.
 constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(1000);
@@ -86,6 +89,7 @@ void sensor_task(void *) {
         }
         // A separate one-item mailbox gives the display the latest sample.
         if (xQueueOverwrite(display_queue, &message) != pdPASS) { fail_stop(); }
+        if (xQueueOverwrite(alarm_queue, &message) != pdPASS) { fail_stop(); }
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000));
     }
 }
@@ -129,6 +133,31 @@ void sensor_log_task(void *) {
         }
     }
 }
+void alarm_task(void *) {
+    if (!buzzer_init()) {
+        print_diagnostic("Buzzer initialization failed\r\n");
+        fail_stop();
+    }
+    const char *last_report = nullptr;
+    for (;;) {
+        SensorMessage message = {};
+        const bool received = xQueueReceive(alarm_queue, &message, pdMS_TO_TICKS(3000)) == pdPASS;
+        const bool valid = received && message.dht_status == Dht22Status::ok &&
+                           validAlarmTemperature(message.values.temperature);
+        const AlarmState state = valid ? evaluateTemperature(message.values.temperature) : AlarmState::NORMAL;
+        buzzer_set(alarmBuzzerEnabled(valid, state));
+        const char *report = !received ? "Alarm: no fresh sample; buzzer OFF\r\n" :
+            (!valid ? "Alarm: invalid temperature; buzzer OFF\r\n" :
+            (state == AlarmState::NORMAL ? "Alarm: NORMAL; buzzer OFF\r\n" :
+            (state == AlarmState::LOW_TEMPERATURE ? "Alarm: LOW_TEMPERATURE; buzzer ON\r\n" :
+                                                 "Alarm: HIGH_TEMPERATURE; buzzer ON\r\n")));
+        if (report != last_report) {
+            print_diagnostic(report);
+            last_report = report;
+        }
+    }
+}
+
 void input_task(void *) {
     encoder_init();
     uint32_t previous = 0;
@@ -283,7 +312,8 @@ extern "C" void app_main(void) {
     sensor_queue = xQueueCreate(sensor_queue_length, sizeof(SensorMessage));
     display_queue = xQueueCreate(1, sizeof(SensorMessage));
     mode_queue = xQueueCreate(1, sizeof(DisplayMode));
-    if (sensor_queue == nullptr || display_queue == nullptr || mode_queue == nullptr) {
+    alarm_queue = xQueueCreate(1, sizeof(SensorMessage));
+    if (sensor_queue == nullptr || display_queue == nullptr || mode_queue == nullptr || alarm_queue == nullptr) {
         serial_write_fault("Sensor queue allocation failed\r\n");
         fail_stop();
     }
@@ -301,6 +331,7 @@ extern "C" void app_main(void) {
         xTaskCreate(sensor_log_task, "SensorLogTask", 384, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(display_task, "DisplayTask", 384, nullptr, 1, nullptr) != pdPASS ||
         xTaskCreate(input_task, "InputTask", 256, nullptr, 2, nullptr) != pdPASS ||
+        xTaskCreate(alarm_task, "AlarmTask", 256, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(task_a, "TaskA", task_stack_words, nullptr, 2, nullptr) != pdPASS ||
         xTaskCreate(task_b, "TaskB", task_stack_words, nullptr, 1, nullptr) != pdPASS) {
         fail_stop();

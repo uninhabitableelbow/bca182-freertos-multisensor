@@ -60,9 +60,16 @@ mailbox. See [display notes](part-vi-display.md). The milestone is
 The user confirmed the rapid-turn fix and authorized the milestone
 `Add rotary encoder navigation`. See [navigation notes](part-vii-navigation.md).
 
+## Part VIII - Alarm subsystem
+
+Part VIII implements pure temperature decisions and a
+separate AlarmTask controlling the PWM buzzer. See the
+[alarm verification checklist](part-viii-alarm.md). The milestone is
+`Implement alarm task`. The user confirmed verification and authorized
+committing and pushing on 2026-10-08.
+
 ## Upcoming milestones
 
-- Alarm output.
 - PIR motion and the ACTIVE/INACTIVE state machine.
 - Consumer fan-out, shared-resource mutex, event signaling, and priorities.
 - Hardware-independent logic, unit tests, static analysis, functional tests,
