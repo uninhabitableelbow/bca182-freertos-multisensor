@@ -38,6 +38,17 @@ QueueHandle_t alarm_queue = nullptr;
 constexpr UBaseType_t sensor_queue_length = 4;
 constexpr uint16_t task_stack_words = 256; // 1 KiB per task on Cortex-M3.
 constexpr TickType_t diagnostic_period = pdMS_TO_TICKS(1000);
+// Part XII: urgency and latency rationale in docs/part-xii-priorities.md.
+// DHT pulse acquisition must outrank task-level polling on physical hardware.
+constexpr UBaseType_t sensor_priority = 3;
+constexpr UBaseType_t motion_priority = 2;
+constexpr UBaseType_t input_priority = 2;
+constexpr UBaseType_t alarm_priority = 2;
+constexpr UBaseType_t display_priority = 1;
+constexpr UBaseType_t logging_priority = 1;
+constexpr UBaseType_t diagnostic_priority = 1;
+static_assert(sensor_priority < configMAX_PRIORITIES,
+              "Sensor priority must fit the configured FreeRTOS range");
 
 [[noreturn]] void fail_stop() {
     __disable_irq();
@@ -509,14 +520,14 @@ extern "C" void app_main(void) {
         fail_stop();
     }
 
-    if (xTaskCreate(motion_task, "MotionTask", 256, nullptr, 2, nullptr) != pdPASS ||
-        xTaskCreate(sensor_task, "SensorTask", 384, nullptr, 3, nullptr) != pdPASS ||
-        xTaskCreate(sensor_log_task, "SensorLogTask", 384, nullptr, 2, nullptr) != pdPASS ||
-        xTaskCreate(display_task, "DisplayTask", 384, nullptr, 1, nullptr) != pdPASS ||
-        xTaskCreate(input_task, "InputTask", 256, nullptr, 2, nullptr) != pdPASS ||
-        xTaskCreate(alarm_task, "AlarmTask", 256, nullptr, 2, nullptr) != pdPASS ||
-        xTaskCreate(task_a, "TaskA", task_stack_words, nullptr, 2, nullptr) != pdPASS ||
-        xTaskCreate(task_b, "TaskB", task_stack_words, nullptr, 1, nullptr) != pdPASS) {
+    if (xTaskCreate(motion_task, "MotionTask", 256, nullptr, motion_priority, nullptr) != pdPASS ||
+        xTaskCreate(sensor_task, "SensorTask", 384, nullptr, sensor_priority, nullptr) != pdPASS ||
+        xTaskCreate(sensor_log_task, "SensorLogTask", 384, nullptr, logging_priority, nullptr) != pdPASS ||
+        xTaskCreate(display_task, "DisplayTask", 384, nullptr, display_priority, nullptr) != pdPASS ||
+        xTaskCreate(input_task, "InputTask", 256, nullptr, input_priority, nullptr) != pdPASS ||
+        xTaskCreate(alarm_task, "AlarmTask", 256, nullptr, alarm_priority, nullptr) != pdPASS ||
+        xTaskCreate(task_a, "TaskA", task_stack_words, nullptr, diagnostic_priority, nullptr) != pdPASS ||
+        xTaskCreate(task_b, "TaskB", task_stack_words, nullptr, diagnostic_priority, nullptr) != pdPASS) {
         fail_stop();
     }
 

@@ -19,6 +19,7 @@ milestones, so the git history documents the evolution of the system:
 | IX    | PIR motion and 15-second inactivity state handling; user verified |
 | X     | ACTIVE/MOTION/ALARM event signaling; user verified |
 | XI    | Serial mutex review and complete error-report protection; user verified |
+| XII   | Explicit task priorities and scheduling justification; user approved |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -79,6 +80,8 @@ ACTIVE, MOTION, and ALARM flags. See [Part X event notes](docs/part-x-events.md)
 for bit ownership, terminal diagnostics, and verification.
 See [Part XI mutex notes](docs/part-xi-mutex.md) for the shared UART resource,
 competing tasks, failure modes, and concurrency verification.
+See [Part XII priorities](docs/part-xii-priorities.md) for task urgency,
+acceptable latency, and the simulation verification flow.
 
 See [Part II verification](docs/part-ii-verification.md) for the checks
 and current verification status.

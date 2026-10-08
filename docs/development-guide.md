@@ -92,7 +92,11 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
-- Task priorities and scheduling justification.
+Part XII assigns named priorities and documents urgency, blocking intervals,
+and the physical/Wokwi scheduling distinction in
+[task priorities](part-xii-priorities.md). After receiving the verification
+checklist, the user approved committing and pushing on 2026-10-08.
+
 - Hardware-independent logic, unit tests, static analysis, functional tests,
   and deliberate fault experiments.
 - Public README, academic report, and requirements traceability.
