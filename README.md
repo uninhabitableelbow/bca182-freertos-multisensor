@@ -20,6 +20,7 @@ milestones, so the git history documents the evolution of the system:
 | X     | ACTIVE/MOTION/ALARM event signaling; user verified |
 | XI    | Serial mutex review and complete error-report protection; user verified |
 | XII   | Explicit task priorities and scheduling justification; user approved |
+| XIII  | Separate task modules and focused startup; user approved |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -31,6 +32,9 @@ src/       Application source (+ main entry point)
 test/      Unit tests
 docs/      Project documentation
 ```
+
+See [Part XIII module map](docs/part-xiii-modules.md) for task boundaries,
+shared RTOS object ownership, and the regression verification checklist.
 
 ## Build
 

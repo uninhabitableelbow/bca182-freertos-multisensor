@@ -9,7 +9,8 @@ writers and makes multi-line OLED error reports one protected operation.
 
 The resource is USART1 output together with the `UART_HandleTypeDef` in
 `src/serial.cpp`. All tasks share that one HAL handle and serial byte stream.
-`print_diagnostic` in `src/app.cpp` takes `serial_mutex` with `portMAX_DELAY`,
+`print_diagnostic` (now in `src/diagnostics.cpp` after Part XIII) takes
+`serial_mutex` with `portMAX_DELAY`,
 transmits the complete report, and gives the mutex. Creation, acquisition,
 UART status, and release are checked. Optional OLED error details and the
 terminating newline are transmitted before releasing the same lock.

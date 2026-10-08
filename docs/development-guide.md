@@ -92,6 +92,12 @@ the PIR wake-up at high temperature, and authorized commit/push on 2026-10-08.
 
 ## Upcoming milestones
 
+Part XIII separates tasks, shared RTOS objects, synchronized state reading,
+and diagnostics from startup orchestration. See
+[module organization](part-xiii-modules.md). Both configurations passed
+module compilation and internal linkage checks. After receiving the runtime
+verification checklist, the user authorized committing and pushing on 2026-10-08.
+
 Part XII assigns named priorities and documents urgency, blocking intervals,
 and the physical/Wokwi scheduling distinction in
 [task priorities](part-xii-priorities.md). After receiving the verification

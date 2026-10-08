@@ -21,3 +21,7 @@ constexpr bool validAlarmTemperature(float temperature) {
 constexpr bool alarmBuzzerEnabled(bool valid, AlarmState state) {
     return valid && state != AlarmState::NORMAL;
 }
+
+namespace app_runtime {
+void alarm_task(void *);
+}
