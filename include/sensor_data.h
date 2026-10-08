@@ -17,10 +17,11 @@ struct SensorMessage {
     SensorData values;
     Dht22Status dht_status;
     bool light_valid;
-    bool motion_valid; // False until PIR acquisition is implemented.
+    bool motion_valid;
     uint16_t light_raw;
     uint32_t sequence;
     uint32_t dropped_samples;
+    uint32_t state_epoch; // Reject samples acquired before a sleep/wake transition.
 };
 
 static_assert(std::is_trivially_copyable<SensorMessage>::value,

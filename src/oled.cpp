@@ -57,6 +57,12 @@ bool send(uint8_t *bytes, uint16_t size) {
 
 const char *oled_error() { return error_text; }
 
+bool oled_set_enabled(bool enabled) {
+    uint8_t command[] = {0x00, static_cast<uint8_t>(enabled ? 0xaf : 0xae)};
+    stage = enabled ? "display wake" : "display sleep";
+    return send(command, sizeof(command));
+}
+
 bool oled_line(unsigned page, const char *text) {
     if (page >= 8 || text == nullptr) { return false; }
     uint8_t pixels[129] = {0x40};

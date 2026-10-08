@@ -68,9 +68,15 @@ separate AlarmTask controlling the PWM buzzer. See the
 `Implement alarm task`. The user confirmed verification and authorized
 committing and pushing on 2026-10-08.
 
+## Part IX - Motion and system state
+
+The user confirmed Part IX verification with "all works". See
+[motion and state checks](part-ix-motion-state.md). Its milestones are
+`Add PIR motion monitoring` and `Add system state machine`. The user authorized
+committing and pushing after verification on 2026-10-08.
+
 ## Upcoming milestones
 
-- PIR motion and the ACTIVE/INACTIVE state machine.
 - Consumer fan-out, shared-resource mutex, event signaling, and priorities.
 - Hardware-independent logic, unit tests, static analysis, functional tests,
   and deliberate fault experiments.

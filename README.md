@@ -16,6 +16,7 @@ milestones, so the git history documents the evolution of the system:
 | VI    | DisplayTask owns the OLED and shows queued temperature readings |
 | VII   | Rotary encoder navigation with Wokwi polling; user confirmed the rapid-turn fix |
 | VIII  | Pure temperature alarm logic and PWM buzzer task; user verified |
+| IX    | PIR motion and 15-second inactivity state handling; user verified |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -69,6 +70,8 @@ the clockwise/counterclockwise verification checklist.
 AlarmTask receives its own sensor mailbox and controls the buzzer on PB8.
 The normal temperature range is 18-30 C inclusive. See
 [Part VIII alarm notes](docs/part-viii-alarm.md) for thresholds and verification.
+MotionTask monitors the PIR on PA4 and owns ACTIVE/INACTIVE transitions.
+See [Part IX state notes](docs/part-ix-motion-state.md) for sleep, wake, and checks.
 
 See [Part II verification](docs/part-ii-verification.md) for the checks
 and current verification status.
