@@ -17,6 +17,7 @@ milestones, so the git history documents the evolution of the system:
 | VII   | Rotary encoder navigation with Wokwi polling; user confirmed the rapid-turn fix |
 | VIII  | Pure temperature alarm logic and PWM buzzer task; user verified |
 | IX    | PIR motion and 15-second inactivity state handling; user verified |
+| X     | ACTIVE/MOTION/ALARM event signaling; user verified |
 | ...   | (to be completed as the lab progresses)           |
 
 ## Repository layout
@@ -72,6 +73,9 @@ The normal temperature range is 18-30 C inclusive. See
 [Part VIII alarm notes](docs/part-viii-alarm.md) for thresholds and verification.
 MotionTask monitors the PIR on PA4 and owns ACTIVE/INACTIVE transitions.
 See [Part IX state notes](docs/part-ix-motion-state.md) for sleep, wake, and checks.
+The FreeRTOS event group wakes sleeping sensor/display tasks and carries
+ACTIVE, MOTION, and ALARM flags. See [Part X event notes](docs/part-x-events.md)
+for bit ownership, terminal diagnostics, and verification.
 
 See [Part II verification](docs/part-ii-verification.md) for the checks
 and current verification status.

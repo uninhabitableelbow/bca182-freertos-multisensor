@@ -18,6 +18,7 @@ bool page_valid[8] = {};
 // Compact 5-column, 7-pixel glyphs for the initial temperature screen.
 struct Glyph { char character; uint8_t columns[5]; };
 constexpr Glyph font[] = {
+    {'A', {126,9,9,9,126}},
     {'%', {35,19,8,100,98}}, {'H', {127,8,8,8,127}},
     {'L', {127,64,64,64,64}}, {'D', {127,65,65,34,28}},
     {'b', {127,72,68,68,56}}, {'c', {56,68,68,68,32}},

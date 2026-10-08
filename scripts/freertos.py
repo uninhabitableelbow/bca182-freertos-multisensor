@@ -26,7 +26,7 @@ env.BuildSources(
     env.subst("$BUILD_DIR") + "/FreeRTOS",
     str(kernel),
     src_filter=[
-        "+<tasks.c>", "+<list.c>", "+<queue.c>",
+        "+<tasks.c>", "+<list.c>", "+<queue.c>", "+<event_groups.c>",
         port_filter,
         "+<portable/MemMang/heap_4.c>",
     ],

@@ -16,18 +16,21 @@
 #include "buzzer.h"
 #include "pir.h"
 #include "system_state.h"
+#include "system_events.h"
 #include <cstdio>
 
 namespace {
 SemaphoreHandle_t serial_mutex = nullptr;
 SemaphoreHandle_t state_mutex = nullptr;
+EventGroupHandle_t system_events = nullptr;
 struct SystemSnapshot {
     SystemState state;
     bool motion;
     bool motion_valid;
     uint32_t epoch;
+    bool alarm;
 };
-SystemSnapshot system_snapshot = {SystemState::ACTIVE, false, false, 0};
+SystemSnapshot system_snapshot = {SystemState::ACTIVE, false, false, 0, false};
 QueueHandle_t sensor_queue = nullptr;
 QueueHandle_t display_queue = nullptr;
 QueueHandle_t mode_queue = nullptr;
@@ -67,15 +70,33 @@ void task_a(void *) {
 
 void task_b(void *) {
     TickType_t last_wake = xTaskGetTickCount();
+    EventBits_t last_events = EVENT_MASK + 1;
     for (;;) {
         print_diagnostic("Task B running\r\n");
+        // Observe persistent event levels without consuming another task's flags.
+        if (xSemaphoreTake(state_mutex, portMAX_DELAY) != pdTRUE) { fail_stop(); }
+        const EventBits_t bits = xEventGroupGetBits(system_events) & EVENT_MASK;
+        if (xSemaphoreGive(state_mutex) != pdTRUE) { fail_stop(); }
+        if (bits != last_events) {
+            char line[80];
+            std::snprintf(line, sizeof(line), "Events: ACTIVE=%u MOTION=%u ALARM=%u\r\n",
+                (bits & EVENT_ACTIVE) != 0 ? 1U : 0U,
+                (bits & EVENT_MOTION) != 0 ? 1U : 0U,
+                (bits & EVENT_ALARM) != 0 ? 1U : 0U);
+            print_diagnostic(line);
+            last_events = bits;
+        }
         vTaskDelayUntil(&last_wake, diagnostic_period);
     }
 }
 
 SystemSnapshot read_system() {
     if (xSemaphoreTake(state_mutex, portMAX_DELAY) != pdTRUE) { fail_stop(); }
-    const SystemSnapshot snapshot = system_snapshot;
+    SystemSnapshot snapshot = system_snapshot;
+    const EventBits_t bits = xEventGroupGetBits(system_events);
+    snapshot.state = (bits & EVENT_ACTIVE) ? SystemState::ACTIVE : SystemState::INACTIVE;
+    snapshot.motion = (bits & EVENT_MOTION) != 0;
+    snapshot.alarm = (bits & EVENT_ALARM) != 0;
     if (xSemaphoreGive(state_mutex) != pdTRUE) { fail_stop(); }
     return snapshot;
 }
@@ -93,10 +114,17 @@ void motion_task(void *) {
         if (motion) { last_motion = now; }
         const SystemState state = activityState(motion, now, last_motion, pdMS_TO_TICKS(15000));
         if (xSemaphoreTake(state_mutex, portMAX_DELAY) != pdTRUE) { fail_stop(); }
+        const bool changed = state != system_snapshot.state || motion != system_snapshot.motion;
         if (state != system_snapshot.state) { ++system_snapshot.epoch; }
         system_snapshot.state = state;
         system_snapshot.motion = motion;
         system_snapshot.motion_valid = true;
+        if (changed) {
+            const EventBits_t desired = (state == SystemState::ACTIVE ? EVENT_ACTIVE : 0) |
+                                       (motion ? EVENT_MOTION : 0);
+            xEventGroupClearBits(system_events, (EVENT_ACTIVE | EVENT_MOTION) & ~desired);
+            if (desired != 0) { xEventGroupSetBits(system_events, desired); }
+        }
         if (xSemaphoreGive(state_mutex) != pdTRUE) { fail_stop(); }
         if (motion != previous_motion) {
             print_diagnostic(motion ? "Motion: detected\r\n" : "Motion: clear\r\n");
@@ -121,7 +149,8 @@ void sensor_task(void *) {
         bool slept = false;
         while (snapshot.state == SystemState::INACTIVE) {
             slept = true;
-            vTaskDelay(pdMS_TO_TICKS(100));
+            // Persistent ACTIVE wakes every waiter; nobody clears it on receipt.
+            xEventGroupWaitBits(system_events, EVENT_ACTIVE, pdFALSE, pdFALSE, portMAX_DELAY);
             snapshot = read_system();
         }
         if (slept) { last_wake = xTaskGetTickCount(); }
@@ -219,9 +248,19 @@ void alarm_task(void *) {
         const bool valid = active && received && message.dht_status == Dht22Status::ok &&
                            validAlarmTemperature(message.values.temperature);
         const AlarmState state = valid ? evaluateTemperature(message.values.temperature) : AlarmState::NORMAL;
-        buzzer_set(alarmBuzzerEnabled(valid, state));
-        const char *report = !active ? "Alarm: INACTIVE; buzzer OFF\r\n" :
-            (!received ? "Alarm: no fresh sample; buzzer OFF\r\n" :
+        // Recheck under the same lock as MotionTask's transition publication.
+        if (xSemaphoreTake(state_mutex, portMAX_DELAY) != pdTRUE) { fail_stop(); }
+        const bool still_active = system_snapshot.state == SystemState::ACTIVE;
+        const bool current_epoch = system_snapshot.epoch == snapshot.epoch;
+        const bool enabled = alarmBuzzerEnabled(valid, state) && still_active &&
+                             current_epoch;
+        buzzer_set(enabled);
+        const EventBits_t bits = xEventGroupGetBits(system_events);
+        if (enabled && !(bits & EVENT_ALARM)) { xEventGroupSetBits(system_events, EVENT_ALARM); }
+        else if (!enabled && (bits & EVENT_ALARM)) { xEventGroupClearBits(system_events, EVENT_ALARM); }
+        if (xSemaphoreGive(state_mutex) != pdTRUE) { fail_stop(); }
+        const char *report = !still_active ? "Alarm: INACTIVE; buzzer OFF\r\n" :
+            (!received || !current_epoch ? "Alarm: no fresh sample; buzzer OFF\r\n" :
             (!valid ? "Alarm: invalid temperature; buzzer OFF\r\n" :
             (state == AlarmState::NORMAL ? "Alarm: NORMAL; buzzer OFF\r\n" :
             (state == AlarmState::LOW_TEMPERATURE ? "Alarm: LOW_TEMPERATURE; buzzer ON\r\n" :
@@ -284,6 +323,7 @@ void display_task(void *) {
     DisplayMode mode = DisplayMode::TEMPERATURE;
     uint32_t seen_epoch = 0;
     bool previous_motion = false;
+    bool previous_alarm = false;
     for (;;) {
         bool dirty = false;
         const SystemSnapshot snapshot = read_system();
@@ -293,11 +333,15 @@ void display_task(void *) {
             dirty = true;
         }
         if (snapshot.state == SystemState::INACTIVE) {
-            if (ready && enabled) {
+            if (enabled) {
                 if (oled_set_enabled(false)) { enabled = false; }
                 else { print_diagnostic("OLED: sleep command failed\r\n"); }
             }
-            vTaskDelay(pdMS_TO_TICKS(100));
+            if (!enabled) {
+                xEventGroupWaitBits(system_events, EVENT_ACTIVE, pdFALSE, pdFALSE, portMAX_DELAY);
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(100)); // Retry a failed display-off command.
+            }
             continue;
         }
         if (!ready) {
@@ -325,6 +369,7 @@ void display_task(void *) {
         }
         if (xQueueReceive(mode_queue, &mode, 0) == pdPASS) { dirty = true; }
         if (snapshot.motion != previous_motion) { dirty = true; previous_motion = snapshot.motion; }
+        if (snapshot.alarm != previous_alarm) { dirty = true; previous_alarm = snapshot.alarm; }
         if (!dirty) { vTaskDelay(pdMS_TO_TICKS(20)); continue; }
         const char *labels[] = {"Temperature", "Humidity", "Light", "Motion"};
         ready = oled_line(2, labels[static_cast<unsigned>(mode)]);
@@ -352,6 +397,7 @@ void display_task(void *) {
             if (length < 0 || static_cast<size_t>(length) >= sizeof(value)) { fail_stop(); }
         }
         ready = ready && oled_line(4, value);
+        ready = ready && oled_line(6, snapshot.alarm ? "ALARM" : "");
         if (!ready) {
             print_diagnostic("OLED: write failed; retrying\r\n");
             print_diagnostic(oled_error());
@@ -419,6 +465,12 @@ extern "C" void app_main(void) {
     if (serial_mutex == nullptr || state_mutex == nullptr) {
         fail_stop();
     }
+    system_events = xEventGroupCreate();
+    if (system_events == nullptr) {
+        serial_write_fault("System event group allocation failed\r\n");
+        fail_stop();
+    }
+    xEventGroupSetBits(system_events, EVENT_ACTIVE);
     sensor_queue = xQueueCreate(sensor_queue_length, sizeof(SensorMessage));
     display_queue = xQueueCreate(1, sizeof(SensorMessage));
     mode_queue = xQueueCreate(1, sizeof(DisplayMode));

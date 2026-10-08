@@ -75,9 +75,16 @@ The user confirmed Part IX verification with "all works". See
 `Add PIR motion monitoring` and `Add system state machine`. The user authorized
 committing and pushing after verification on 2026-10-08.
 
+## Part X - Event signaling
+
+Part X implements persistent ACTIVE/MOTION/ALARM event bits.
+See [event signaling checks](part-x-events.md). The milestone is
+`Add FreeRTOS event group`. The user confirmed all verification steps and
+authorized committing and pushing on 2026-10-08.
+
 ## Upcoming milestones
 
-- Consumer fan-out, shared-resource mutex, event signaling, and priorities.
+- Shared-resource mutex explanation and task priorities.
 - Hardware-independent logic, unit tests, static analysis, functional tests,
   and deliberate fault experiments.
 - Public README, academic report, and requirements traceability.
