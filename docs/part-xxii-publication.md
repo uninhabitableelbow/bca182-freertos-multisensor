@@ -23,9 +23,11 @@ story and attachments. The prepared story covers all 16 recommended sections.
 The attachments include the GitHub source link and the actual Wokwi circuit
 image. The instructor was selected in the team form during setup.
 
-The public project URL and final saved collaborator status have not been
-recorded here. Confirm that the project is publicly published and that
-Paul Rodolf P. Castor (`paulrodolf.castor@g.msuiit.edu.ph`) is saved as a
-collaborator; completing the editor alone does not establish public visibility.
+Published project link provided after completion:
+https://www.hackster.io/kevinchristianvillareal/stm32-freertos-room-multisensor-a69b8a
+
+The public page could not be retrieved by the browsing tool during the final
+review, so its displayed content was not independently checked. Paul Rodolf P. Castor is saved as a collaborator, confirmed on 08 October 2026.
+This satisfies the collaborator requirement in requirement 62.
 
 The final documentation commit and push were authorized on 2026-10-08.
